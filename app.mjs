@@ -28,6 +28,45 @@ app.get('/results', async (req, res) => {
   const response = await fetch(apiUrl);
   const data = await response.json();
   let species = data.data.species;
+  const [x, y] = pentadCode.split('_').map(str => parseInt(str));
+  const pentads = [
+    `${x - 5}_${y - 5}`,
+    `${x}_${y - 5}`,
+    `${x + 5}_${y - 5}`,
+    `${x - 5}_${y}`,
+    `${x}_${y}`,
+    `${x + 5}_${y}`,
+    `${x - 5}_${y + 5}`,
+    `${x}_${y + 5}`,
+    `${x + 5}_${y + 5}`
+    ];
+  const speciesLists = await Promise.all(pentads.map(async pentad => { 
+    const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
+    console.log(`Fetching ${pentad}...`);
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+    return data.data.species;
+    }));
+  let speciesAdjacentPentads = [].concat(...speciesLists);
+  //remove elements from speciesAdjacentPentads that are also in species based on Common_species and Common_group
+  speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
+    return !species.some(species => species.Ref === speciesAdjacent.Ref);
+  });
+  const speciesAdjacent = speciesAdjacentPentads.reduce((counts, species) => {
+    if (!counts[species.Ref]) {
+      counts[species.Ref] = {
+        Ref: species.Ref,
+        Common_group: species.Common_group,
+        Common_species: species.Common_species,
+        Pentads: 1
+      };
+    } else {
+      counts[species.Ref].Pentads += 1;
+    }
+    return counts;
+  }, {});
+  const speciesAdjacentArray = Object.values(speciesAdjacent).sort((a, b) => b.Pentads - a.Pentads);
+  
   let sortKey = 'fp';
   let sortOrder = 1;
   if (req.query.sortKey) {
@@ -43,7 +82,31 @@ app.get('/results', async (req, res) => {
   <td>${species.Common_group || ''}</td>
   <td>${parseFloat(species.fp).toFixed(1)}</td>
   </tr>
-  `).join('')} </tbody> </table> </body> </html> `);
+  `).join('')} </tbody> </table> 
+  <h2>Possible Species</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Group</th>
+        <th>Species</th>
+        <th>Pentads</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${speciesAdjacentArray
+        .map(species => {
+          return `
+            <tr>
+              <td>${species.Common_group || ''}</td>
+              <td>${species.Common_species}</td>
+              <td>${species.Pentads}</td>
+            </tr>
+          `;
+        }).join('')}
+    </tbody>
+  </table>
+  
+  </body> </html> `);
   });
   
   app.listen(port, () => {
