@@ -1,8 +1,8 @@
 import express from 'express';
 import fetch from 'node-fetch';
+import serverless from 'serverless-http';
 
 const app = express();
-const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
   res.send(`
@@ -48,7 +48,6 @@ app.get('/results', async (req, res) => {
     return data.data.species;
     }));
   let speciesAdjacentPentads = [].concat(...speciesLists);
-  //remove elements from speciesAdjacentPentads that are also in species based on Common_species and Common_group
   speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
     return !species.some(species => species.Ref === speciesAdjacent.Ref);
   });
@@ -109,6 +108,6 @@ app.get('/results', async (req, res) => {
   </body> </html> `);
   });
   
-  app.listen(port, () => {
-  console.log(`Listening on port ${port}`);
-  });
+  const serverlessApp = serverless(app);
+
+  module.exports.handler = serverlessApp;
