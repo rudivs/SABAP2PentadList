@@ -1,28 +1,50 @@
-import express from 'express';
-import fetch from 'node-fetch';
-import serverless from 'serverless-http';
-
+console.log('Loading app');
+const express = require('express');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const serverless = require('serverless-http');
 const app = express();
+const bodyParser = require('body-parser');
+const router = express.Router();
 
-app.get('/', (req, res) => {
-  res.send(`
+router.get('/', (req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.write(`
     <html>
       <head>
+        <script type="text/javascript">
+          function callResults() {
+            // Get the pentad code value from the form
+            var pentadCode = document.getElementById('pentadCode').value;
+            // Make a GET request to the /results endpoint with the pentad code as a query parameter
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/.netlify/functions/app/results?pentadCode=' + pentadCode, true);
+            xhr.onreadystatechange = function () {
+              // When the request is successful, display the returned html in the page
+              if (this.readyState === 4 && this.status === 200) {
+                document.getElementById('results').innerHTML = this.responseText;
+              }
+            };
+            xhr.send();
+          }
+        </script>
         <title>Pentad Code Query</title>
       </head>
       <body>
         <h1>Pentad Code Query</h1>
-        <form action="/results" method="GET">
+        <form onsubmit="callResults(); return false;">
           <label for="pentadCode">Enter pentad code:</label><br>
           <input type="text" id="pentadCode" name="pentadCode"><br>
           <button type="submit">Submit</button>
-        </form> 
+        </form>
+        <div id="results"></div>
       </body>
     </html>
   `);
+  res.end();
 });
 
-app.get('/results', async (req, res) => {
+router.get('/results', async (req, res) => {
+  console.log('Fetching species list...');
   const pentadCode = req.query.pentadCode;
   const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
   const response = await fetch(apiUrl);
@@ -75,7 +97,8 @@ app.get('/results', async (req, res) => {
     sortOrder = parseInt(req.query.sortOrder);
   }
   species = species.sort((a,b) => sortOrder * (b[sortKey] - a[sortKey]));
-  res.send(`<html> <head> <title>Pentad ${pentadCode}</title> </head> <body> <h1>Pentad ${pentadCode} Species List</h1> <table> <thead> <tr> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_species&sortOrder=${sortKey === 'Common_species' ? sortOrder * -1 : 1}">Species</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_group&sortOrder=${sortKey === 'Common_group' ? sortOrder * -1 : 1}">Group</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=fp&sortOrder=${sortKey === 'fp' ? sortOrder * -1 : 1}">FP Rate</a></th> </tr> </thead> <tbody> ${species.map(species =>`
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.write(`<html> <head> <title>Pentad ${pentadCode}</title> </head> <body> <h1>Pentad ${pentadCode} Species List</h1> <table> <thead> <tr> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_species&sortOrder=${sortKey === 'Common_species' ? sortOrder * -1 : 1}">Species</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_group&sortOrder=${sortKey === 'Common_group' ? sortOrder * -1 : 1}">Group</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=fp&sortOrder=${sortKey === 'fp' ? sortOrder * -1 : 1}">FP Rate</a></th> </tr> </thead> <tbody> ${species.map(species =>`
   <tr>
   <td>${species.Common_species}</td>
   <td>${species.Common_group || ''}</td>
@@ -106,8 +129,12 @@ app.get('/results', async (req, res) => {
   </table>
   
   </body> </html> `);
+  res.end();
   });
-  
-  const serverlessApp = serverless(app);
 
-  module.exports.handler = serverlessApp;
+  app.use(bodyParser.json());
+  app.use('/.netlify/functions/app', router);  // path must route to lambda
+  app.use('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+  
+  module.exports = app;
+  module.exports.handler = serverless(app);;
