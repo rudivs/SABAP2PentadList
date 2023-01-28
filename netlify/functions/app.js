@@ -61,15 +61,21 @@ router.get('/results', async (req, res) => {
   }
   species = species.sort((a,b) => sortOrder * (b[sortKey] - a[sortKey]));
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.write(`<html> <head> <title>Pentad ${pentadCode}</title> </head> <body> <h1>Pentad ${pentadCode} Species List</h1> <table> <thead> <tr> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_species&sortOrder=${sortKey === 'Common_species' ? sortOrder * -1 : 1}">Species</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=Common_group&sortOrder=${sortKey === 'Common_group' ? sortOrder * -1 : 1}">Group</a></th> <th><a href="/results?pentadCode=${pentadCode}&sortKey=fp&sortOrder=${sortKey === 'fp' ? sortOrder * -1 : 1}">FP Rate</a></th> </tr> </thead> <tbody> ${species.map(species =>`
+  res.write(`<html> <head> <title>Pentad ${pentadCode}</title> 
+  </head> 
+  <body> <h1>Pentad ${pentadCode} Species List</h1> 
+  <div style="width:500px">
+  <table id="species-table" class="display compact"> <thead> <tr> <th>Species</th> <th>Group</th> <th>FP Rate</th> </tr> </thead> <tbody> ${species.map(species =>`
   <tr>
   <td>${species.Common_species}</td>
   <td>${species.Common_group || ''}</td>
   <td>${parseFloat(species.fp).toFixed(1)}</td>
   </tr>
   `).join('')} </tbody> </table> 
+  </div>
   <h2>Possible Species</h2>
-  <table>
+  <div style="width:500px">
+  <table id="possible-species" class="display compact">
     <thead>
       <tr>
         <th>Group</th>
@@ -90,7 +96,7 @@ router.get('/results', async (req, res) => {
         }).join('')}
     </tbody>
   </table>
-  
+  </div>
   </body> </html> `);
   res.end();
   });

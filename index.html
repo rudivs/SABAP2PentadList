@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
+    <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
       function callResults() {
         // Get the pentad code value from the form
@@ -12,6 +15,28 @@
           // When the request is successful, display the returned html in the page
           if (this.readyState === 4 && this.status === 200) {
             document.getElementById('results').innerHTML = this.responseText;
+            // Initialize the DataTables plugin on the table
+            $('#species-table').DataTable({
+                "order": [[ 2, "desc" ]],
+                "paging": false,
+                "fixedComumns": true,
+                columnDefs: [
+                    { width: '35%', targets: 0 },
+                    { width: '45%', targets: 1 },
+                    { width: '20%', targets: 2 }
+                ],
+            });
+
+            $('#possible-species').DataTable({
+                "order": [[ 2, "desc" ]],
+                "paging": false,
+                "fixedComumns": true,
+                columnDefs: [
+                    { width: '35%', targets: 0 },
+                    { width: '45%', targets: 1 },
+                    { width: '20%', targets: 2 }
+                ],
+            });
           }
         };
         xhr.send();
