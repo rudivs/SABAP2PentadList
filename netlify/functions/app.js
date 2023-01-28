@@ -6,43 +6,6 @@ const app = express();
 const bodyParser = require('body-parser');
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.write(`
-    <html>
-      <head>
-        <script type="text/javascript">
-          function callResults() {
-            // Get the pentad code value from the form
-            var pentadCode = document.getElementById('pentadCode').value;
-            // Make a GET request to the /results endpoint with the pentad code as a query parameter
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', '/.netlify/functions/app/results?pentadCode=' + pentadCode, true);
-            xhr.onreadystatechange = function () {
-              // When the request is successful, display the returned html in the page
-              if (this.readyState === 4 && this.status === 200) {
-                document.getElementById('results').innerHTML = this.responseText;
-              }
-            };
-            xhr.send();
-          }
-        </script>
-        <title>Pentad Code Query</title>
-      </head>
-      <body>
-        <h1>Pentad Code Query</h1>
-        <form onsubmit="callResults(); return false;">
-          <label for="pentadCode">Enter pentad code:</label><br>
-          <input type="text" id="pentadCode" name="pentadCode"><br>
-          <button type="submit">Submit</button>
-        </form>
-        <div id="results"></div>
-      </body>
-    </html>
-  `);
-  res.end();
-});
-
 router.get('/results', async (req, res) => {
   console.log('Fetching species list...');
   const pentadCode = req.query.pentadCode;
