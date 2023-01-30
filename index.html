@@ -96,12 +96,17 @@
     <div id="results"></div>
     <div id="myModal" class="modal">
       <div class="modal-content">
-        <p id="speciesDisplayName"></p>
+        <p>
+          <span id="speciesDisplayName"></span> <br/>
+          Call type: <span id="callType"></span> <br/>
+          Country: <span id="cnt"></span> <br/>
+          Location: <span id="loc"></span> <br/>
+        </p>
         <span class="close">&times;</span>
         <audio controls id="audioPlayer">
           <source src="" type="audio/mpeg">
         </audio>
-        <a href="#" onclick="playSingle(); return false;" style="display: none" id="play-single">Play single call only</a>
+        <span><a href="#" onclick="playSingle(); return false;" style="display: none" id="play-single">Play single call only</a></span>
       </div>
     </div>
     <script>
@@ -110,9 +115,15 @@
       const close = document.getElementsByClassName("close")[0];
       let mode = "single";
     
-      function playCall(speciesName, speciesDisplayName) {
-        document.getElementById("speciesDisplayName").innerHTML = speciesDisplayName;
-        audioPlayer.src = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}`;
+      async function playCall(speciesName, commonName) {
+        let apiCall = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}&commonName=${encodeURIComponent(commonName)}`;
+        const response = await fetch(apiCall);
+        const json = await response.json();
+        document.getElementById("speciesDisplayName").innerHTML = `<strong>${commonName}</strong> (${speciesName})`;
+        document.getElementById("callType").innerHTML = json.type;
+        document.getElementById("cnt").innerHTML = json.country;
+        document.getElementById("loc").innerHTML = json.location;
+        audioPlayer.src = json.file;
         modal.style.display = "block";
         audioPlayer.play();
         if (mode === "random") {
@@ -133,6 +144,7 @@
       function playSingle() {
         mode = "single";
         audioPlayer.removeEventListener("ended", playRandom);
+        document.getElementById("play-single").style.display = "none";
       }
     
       close.onclick = function() {

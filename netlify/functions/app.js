@@ -6,6 +6,18 @@ const app = express();
 const bodyParser = require('body-parser');
 const router = express.Router();
 
+function fetchCalls(species, quality, country){
+  let apiUrl = `https://www.xeno-canto.org/api/2/recordings?query=${species}`;
+  if (quality) {
+    apiUrl += `%20q:${quality}`;
+  }
+  if (country) {
+    apiUrl += `%20cnt:%22${country}%22`;
+  }
+  console.log(`Fetching '${apiUrl}'...`)
+  return fetch(apiUrl).then(response => response.json());
+}
+
 router.get('/results', async (req, res) => {
   console.log('Fetching bird list...');
   const pentadCode = req.query.pentadCode;
@@ -99,7 +111,7 @@ router.get('/results', async (req, res) => {
                 <td>${species.Common_species}</td>
                 <td>${species.Common_group || ''}</td>
                 <td>${parseFloat(species.fp).toFixed(1)}</td>
-                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group} (${species.Genus} ${species.Species})')">Listen</a></td>
+                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group}')">Listen</a></td>
               </tr>
             `).join('')}
           </tbody>
@@ -124,7 +136,7 @@ router.get('/results', async (req, res) => {
                     <td>${species.Common_group || ''}</td>
                     <td>${species.Common_species}</td>
                     <td>${species.Pentads}</td>
-                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group} (${species.Genus} ${species.Species})')">Listen</a></td>
+                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group}')">Listen</a></td>
                   </tr>
                 `;
               }).join('')}
@@ -141,21 +153,36 @@ router.get('/results', async (req, res) => {
   router.get('/call', async (req, res) => {
     console.log('Fetching bird call...');
     const speciesName = req.query.speciesName;
-    const apiUrl = `https://www.xeno-canto.org/api/2/recordings?query=${speciesName}&q:A`;
-    console.log(`Fetching '${apiUrl}'...`)
-    const response = await fetch(apiUrl);
-    const data = await response.json();
-    let recordings = data.recordings;
-    if (!recordings.length) {
+    const commonName = req.query.commonName;
+    const country = req.query.cnt;
+    // first try to find a call with high quality from South Africa
+    let data = await fetchCalls(speciesName, 'A', 'South Africa');
+    // if no high quality calls from South Africa, try to find a high quality call from anywhere
+    if (!data.recordings.length) {
+      data = await fetchCalls(speciesName, 'A', null);
+    }
+    // if still no calls, it could be a taxonomic issue, try with the common name
+    if (!data.recordings.length) {
+      data = await fetchCalls(commonName, null, null);
+    }
+    if (!data.recordings.length) {
       res.status(404).send('Not found');
       return;
     }
+    const recordings = data.recordings;
     let randomIndex = Math.floor(Math.random() * recordings.length);
-    let randomFile = recordings[randomIndex].file;
-    console.log(randomFile);
-    res.redirect(randomFile);
+    let result = {};
+    result.file = recordings[randomIndex].file;
+    result.country = recordings[randomIndex].cnt;
+    result.location = recordings[randomIndex].loc;
+    result.type = recordings[randomIndex].type;
+    console.log(result.file);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write(JSON.stringify(result));
+    res.end();
     });
 
+  app.set('timeout', process.env.TIMEOUT || 30 * 1000);
   app.use(bodyParser.json());
   app.use('/.netlify/functions/app', router);  // path must route to lambda
   app.use('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
