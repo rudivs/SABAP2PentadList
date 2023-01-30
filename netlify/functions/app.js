@@ -182,7 +182,6 @@ router.get('/results', async (req, res) => {
     res.end();
     });
 
-  app.set('timeout', process.env.TIMEOUT || 30 * 1000);
   app.use(bodyParser.json());
   app.use('/.netlify/functions/app', router);  // path must route to lambda
   app.use('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
