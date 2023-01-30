@@ -86,7 +86,7 @@ router.get('/results', async (req, res) => {
                 <td>${species.Common_species}</td>
                 <td>${species.Common_group || ''}</td>
                 <td>${parseFloat(species.fp).toFixed(1)}</td>
-                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}')">Listen</a></td>
+                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group} (${species.Genus} ${species.Species})')">Listen</a></td>
               </tr>
             `).join('')}
           </tbody>
@@ -111,7 +111,7 @@ router.get('/results', async (req, res) => {
                     <td>${species.Common_group || ''}</td>
                     <td>${species.Common_species}</td>
                     <td>${species.Pentads}</td>
-                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}')">Listen</a></td>
+                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group} (${species.Genus} ${species.Species})')">Listen</a></td>
                   </tr>
                 `;
               }).join('')}
