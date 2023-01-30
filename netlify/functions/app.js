@@ -7,7 +7,7 @@ const bodyParser = require('body-parser');
 const router = express.Router();
 
 router.get('/results', async (req, res) => {
-  console.log('Fetching species list...');
+  console.log('Fetching bird list...');
   const pentadCode = req.query.pentadCode;
   const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
   const response = await fetch(apiUrl);
@@ -42,6 +42,8 @@ router.get('/results', async (req, res) => {
         Ref: species.Ref,
         Common_group: species.Common_group,
         Common_species: species.Common_species,
+        Genus: species.Genus,
+        Species: species.Species,
         Pentads: 1
       };
     } else {
@@ -61,45 +63,85 @@ router.get('/results', async (req, res) => {
   }
   species = species.sort((a,b) => sortOrder * (b[sortKey] - a[sortKey]));
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.write(`<html> <head> <title>Pentad ${pentadCode}</title> 
-  </head> 
-  <body> <h1>Pentad ${pentadCode} Species List</h1> 
-  <div style="width:500px">
-  <table id="species-table" class="display compact"> <thead> <tr> <th>Species</th> <th>Group</th> <th>FP Rate</th> </tr> </thead> <tbody> ${species.map(species =>`
-  <tr>
-  <td>${species.Common_species}</td>
-  <td>${species.Common_group || ''}</td>
-  <td>${parseFloat(species.fp).toFixed(1)}</td>
-  </tr>
-  `).join('')} </tbody> </table> 
-  </div>
-  <h2>Possible Species</h2>
-  <div style="width:500px">
-  <table id="possible-species" class="display compact">
-    <thead>
-      <tr>
-        <th>Group</th>
-        <th>Species</th>
-        <th>Pentads</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${speciesAdjacentArray
-        .map(species => {
-          return `
+  res.write(`
+  <html>
+    <head>
+      <title>Pentad ${pentadCode}</title>
+    </head>
+    <body>
+      <h1>Pentad ${pentadCode} Species List</h1>
+      <div style="width:500px">
+        <table id="species-table" class="display compact">
+          <thead>
             <tr>
-              <td>${species.Common_group || ''}</td>
-              <td>${species.Common_species}</td>
-              <td>${species.Pentads}</td>
+              <th>Species</th>
+              <th>Group</th>
+              <th>FP Rate</th>
+              <th>Call</th>
             </tr>
-          `;
-        }).join('')}
-    </tbody>
-  </table>
-  </div>
-  </body> </html> `);
+          </thead>
+          <tbody>
+            ${species.map(species =>`
+              <tr>
+                <td>${species.Common_species}</td>
+                <td>${species.Common_group || ''}</td>
+                <td>${parseFloat(species.fp).toFixed(1)}</td>
+                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}')">Listen</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <h2>Possible Species</h2>
+      <div style="width:500px">
+        <table id="possible-species" class="display compact">
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Species</th>
+              <th>Pentads</th>
+              <th>Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${speciesAdjacentArray
+              .map(species => {
+                return `
+                  <tr>
+                    <td>${species.Common_group || ''}</td>
+                    <td>${species.Common_species}</td>
+                    <td>${species.Pentads}</td>
+                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}')">Listen</a></td>
+                  </tr>
+                `;
+              }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </body>
+  </html>
+`);
+
   res.end();
   });
+
+  router.get('/call', async (req, res) => {
+    console.log('Fetching bird call...');
+    const speciesName = req.query.speciesName;
+    const apiUrl = `https://www.xeno-canto.org/api/2/recordings?query=${speciesName}&q:A`;
+    console.log(`Fetching '${apiUrl}'...`)
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+    let recordings = data.recordings;
+    if (!recordings.length) {
+      res.status(404).send('Not found');
+      return;
+    }
+    let randomIndex = Math.floor(Math.random() * recordings.length);
+    let randomFile = recordings[randomIndex].file;
+    console.log(randomFile);
+    res.redirect(randomFile);
+    });
 
   app.use(bodyParser.json());
   app.use('/.netlify/functions/app', router);  // path must route to lambda

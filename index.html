@@ -1,6 +1,42 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <style>
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+      }
+    
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+      }
+    
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+    
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+    </style>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
@@ -22,8 +58,9 @@
                 "fixedComumns": true,
                 columnDefs: [
                     { width: '35%', targets: 0 },
-                    { width: '45%', targets: 1 },
-                    { width: '20%', targets: 2 }
+                    { width: '35%', targets: 1 },
+                    { width: '15%', targets: 2 },
+                    { width: '15%', targets: 3 }
                 ],
             });
 
@@ -33,8 +70,9 @@
                 "fixedComumns": true,
                 columnDefs: [
                     { width: '35%', targets: 0 },
-                    { width: '45%', targets: 1 },
-                    { width: '20%', targets: 2 }
+                    { width: '35%', targets: 1 },
+                    { width: '15%', targets: 2 },
+                    { width: '15%', targets: 3 }
                 ],
             });
           }
@@ -52,5 +90,36 @@
       <button type="submit">Submit</button>
     </form>
     <div id="results"></div>
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <audio controls id="audioPlayer">
+          <source src="" type="audio/mpeg">
+        </audio> 
+      </div>
+    </div>
+    <script>
+      const modal = document.getElementById("myModal");
+      const audioPlayer = document.getElementById("audioPlayer");
+      const close = document.getElementsByClassName("close")[0];
+    
+      function playCall(speciesName) {
+        audioPlayer.src = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}`;
+        modal.style.display = "block";
+        audioPlayer.play();
+      }
+    
+      close.onclick = function() {
+        modal.style.display = "none";
+        audioPlayer.pause();
+      }
+    
+      window.onclick = function(event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+          audioPlayer.pause();
+        }
+      }
+    </script>
   </body>
 </html>
