@@ -10,7 +10,15 @@ router.get('/results', async (req, res) => {
   console.log('Fetching bird list...');
   const pentadCode = req.query.pentadCode;
   const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
-  const response = await fetch(apiUrl);
+  let response;
+  try {
+    response = await fetch(apiUrl);
+  }
+  catch (error) {
+    console.error(`Fetching ${pentadCode} failed:`, error);
+    res.status(500).send('Fetching bird list failed');
+    return;
+  }
   const data = await response.json();
   let species = data.data.species;
   const [x, y] = pentadCode.split('_').map(str => parseInt(str));
@@ -25,12 +33,17 @@ router.get('/results', async (req, res) => {
     `${x}_${y + 5}`,
     `${x + 5}_${y + 5}`
     ];
-  const speciesLists = await Promise.all(pentads.map(async pentad => { 
-    const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
-    console.log(`Fetching ${pentad}...`);
-    const response = await fetch(apiUrl);
-    const data = await response.json();
-    return data.data.species;
+    const speciesLists = await Promise.all(pentads.map(async pentad => { 
+      try {
+        const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
+        console.log(`Fetching ${pentad}...`);
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        return data.data.species;
+      } catch (error) {
+        console.error(`Fetching ${pentad} failed:`, error);
+        return [];
+      }
     }));
   let speciesAdjacentPentads = [].concat(...speciesLists);
   speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {

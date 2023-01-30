@@ -75,6 +75,8 @@
                     { width: '15%', targets: 3 }
                 ],
             });
+
+            document.getElementById("play-random").style.display = "block";
           }
         };
         xhr.send();
@@ -89,6 +91,8 @@
       <input type="text" id="pentadCode" name="pentadCode"><br>
       <button type="submit">Submit</button>
     </form>
+    <br />
+    <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
     <div id="results"></div>
     <div id="myModal" class="modal">
       <div class="modal-content">
@@ -96,19 +100,39 @@
         <span class="close">&times;</span>
         <audio controls id="audioPlayer">
           <source src="" type="audio/mpeg">
-        </audio> 
+        </audio>
+        <a href="#" onclick="playSingle(); return false;" style="display: none" id="play-single">Play single call only</a>
       </div>
     </div>
     <script>
       const modal = document.getElementById("myModal");
       const audioPlayer = document.getElementById("audioPlayer");
       const close = document.getElementsByClassName("close")[0];
+      let mode = "single";
     
       function playCall(speciesName, speciesDisplayName) {
         document.getElementById("speciesDisplayName").innerHTML = speciesDisplayName;
         audioPlayer.src = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}`;
         modal.style.display = "block";
         audioPlayer.play();
+        if (mode === "random") {
+          audioPlayer.addEventListener("ended", playRandom);
+        }
+      }
+
+      function playRandom() {
+        mode = "random";
+        let tableRows = document.querySelectorAll('#species-table tr');
+        let randomIndex = Math.floor(Math.random() * tableRows.length);
+        let randomRow = tableRows[randomIndex];
+        let link = randomRow.querySelector('a');
+        document.getElementById("play-single").style.display = "block";
+        link.click();
+      }
+
+      function playSingle() {
+        mode = "single";
+        audioPlayer.removeEventListener("ended", playRandom);
       }
     
       close.onclick = function() {
