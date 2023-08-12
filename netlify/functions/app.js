@@ -46,23 +46,38 @@ router.get('/results', async (req, res) => {
     `${x + 5}_${y + 5}`
     ];
     const speciesLists = await Promise.all(pentads.map(async pentad => { 
+      const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       try {
-        const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
-        console.log(`Fetching ${pentad}...`);
-        const response = await fetch(apiUrl);
+        console.log(`Fetching ${pentad} from ${apiUrl}...`);
+        const response = await fetch(apiUrl, { signal: controller.signal });
         const data = await response.json();
+        if (!data.data.species) {
+          console.log(`Pentad ${pentad} returned no species`);
+          return [];
+        }
+        console.log(`Pentad ${pentad} returned ${data.data.species.length} species...`);
         return data.data.species;
       } catch (error) {
-        console.error(`Fetching ${pentad} failed:`, error);
+        if (error.name === 'AbortError') {
+          console.error(`Fetching ${pentad} timed out`);
+        } else {
+          console.error(`Fetching ${pentad} failed:`, error);
+        }
         return [];
+      } finally {
+        clearTimeout(timeoutId);
       }
     }));
   let speciesAdjacentPentads = [].concat(...speciesLists);
-  speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
-    return !species.some(species => species.Ref === speciesAdjacent.Ref);
-  });
+    if (species && species.length > 0) {
+    speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
+      return !species.some(species => species.Ref === speciesAdjacent?.Ref);
+    });
+  }
   const speciesAdjacent = speciesAdjacentPentads.reduce((counts, species) => {
-    if (!counts[species.Ref]) {
+    if (!counts[species?.Ref]) {
       counts[species.Ref] = {
         Ref: species.Ref,
         Common_group: species.Common_group,
