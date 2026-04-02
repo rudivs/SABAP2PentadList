@@ -1,7 +1,103 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        line-height: 1.5;
+        background: #f5f7fa;
+        color: #16202a;
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 16px 40px;
+      }
+
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+
+      .query-form {
+        display: grid;
+        gap: 12px;
+        max-width: 420px;
+      }
+
+      .query-form label {
+        font-weight: 600;
+      }
+
+      .query-form input,
+      .query-form button {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 16px;
+        border-radius: 8px;
+      }
+
+      .query-form input {
+        border: 1px solid #c4ccd5;
+        background: #fff;
+      }
+
+      .query-form button {
+        border: none;
+        background: #1e5bb8;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .query-form button:hover,
+      .query-form button:focus {
+        background: #184a95;
+      }
+
+      #play-random {
+        display: inline-block;
+        margin: 8px 0 20px;
+      }
+
+      #results {
+        width: 100%;
+      }
+
+      .results-section {
+        margin-top: 24px;
+      }
+
+      .results-table {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .dataTables_wrapper {
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      table.dataTable {
+        width: 100% !important;
+      }
+
+      .dataTables_wrapper .dataTables_filter,
+      .dataTables_wrapper .dataTables_info,
+      .dataTables_wrapper .dataTables_paginate,
+      .dataTables_wrapper .dataTables_length {
+        margin-top: 8px;
+      }
+
       .modal {
         display: none;
         position: fixed;
@@ -17,10 +113,13 @@
     
       .modal-content {
         background-color: #fefefe;
-        margin: 15% auto;
+        margin: 48px auto;
         padding: 20px;
         border: 1px solid #888;
-        width: 80%;
+        width: min(92vw, 680px);
+        max-height: calc(100vh - 96px);
+        overflow-y: auto;
+        border-radius: 12px;
       }
     
       .close {
@@ -35,6 +134,34 @@
         color: black;
         text-decoration: none;
         cursor: pointer;
+      }
+
+      #audioPlayer {
+        width: 100%;
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          padding: 20px 12px 32px;
+        }
+
+        .modal-content {
+          margin: 16px auto;
+          max-height: calc(100vh - 32px);
+          padding: 16px;
+        }
+
+        .dataTables_wrapper .dataTables_filter label,
+        .dataTables_wrapper .dataTables_length label {
+          display: block;
+        }
+
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+          width: 100%;
+          margin-left: 0;
+          margin-top: 6px;
+        }
       }
     </style>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
@@ -55,7 +182,8 @@
             $('#species-table').DataTable({
                 "order": [[ 2, "desc" ]],
                 "paging": false,
-                "fixedComumns": true,
+                "scrollX": true,
+                "autoWidth": false,
                 columnDefs: [
                     { width: '35%', targets: 0 },
                     { width: '35%', targets: 1 },
@@ -67,7 +195,8 @@
             $('#possible-species').DataTable({
                 "order": [[ 2, "desc" ]],
                 "paging": false,
-                "fixedComumns": true,
+                "scrollX": true,
+                "autoWidth": false,
                 columnDefs: [
                     { width: '35%', targets: 0 },
                     { width: '35%', targets: 1 },
@@ -85,28 +214,29 @@
     <title>Pentad Code Query</title>
   </head>
   <body>
-    <h1>Pentad Code Query</h1>
-    <form onsubmit="callResults(); return false;">
-      <label for="pentadCode">Enter pentad code:</label><br>
-      <input type="text" id="pentadCode" name="pentadCode"><br>
-      <button type="submit">Submit</button>
-    </form>
-    <br />
-    <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
-    <div id="results"></div>
-    <div id="myModal" class="modal">
-      <div class="modal-content">
-        <p>
-          <span id="speciesDisplayName"></span> <br/>
-          Call type: <span id="callType"></span> <br/>
-          Country: <span id="cnt"></span> <br/>
-          Location: <span id="loc"></span> <br/>
-        </p>
-        <span class="close">&times;</span>
-        <audio controls id="audioPlayer">
-          <source src="" type="audio/mpeg">
-        </audio>
-        <span><a href="#" onclick="playSingle(); return false;" style="display: none" id="play-single">Play single call only</a></span>
+    <div class="page">
+      <h1>Pentad Code Query</h1>
+      <form class="query-form" onsubmit="callResults(); return false;">
+        <label for="pentadCode">Enter pentad code:</label>
+        <input type="text" id="pentadCode" name="pentadCode">
+        <button type="submit">Submit</button>
+      </form>
+      <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
+      <div id="results"></div>
+      <div id="myModal" class="modal">
+        <div class="modal-content">
+          <p>
+            <span id="speciesDisplayName"></span> <br/>
+            Call type: <span id="callType"></span> <br/>
+            Country: <span id="cnt"></span> <br/>
+            Location: <span id="loc"></span> <br/>
+          </p>
+          <span class="close">&times;</span>
+          <audio controls id="audioPlayer">
+            <source src="" type="audio/mpeg">
+          </audio>
+          <span><a href="#" onclick="playSingle(); return false;" style="display: none" id="play-single">Play single call only</a></span>
+        </div>
       </div>
     </div>
     <script>
@@ -117,23 +247,37 @@
     
       async function playCall(speciesName, commonName) {
         let apiCall = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}&commonName=${encodeURIComponent(commonName)}`;
-        const response = await fetch(apiCall);
-        const json = await response.json();
-        document.getElementById("speciesDisplayName").innerHTML = `<strong>${commonName}</strong> (${speciesName})`;
-        document.getElementById("callType").innerHTML = json.type;
-        document.getElementById("cnt").innerHTML = json.country;
-        document.getElementById("loc").innerHTML = json.location;
-        audioPlayer.src = json.file;
-        modal.style.display = "block";
-        audioPlayer.play();
-        if (mode === "random") {
-          audioPlayer.addEventListener("ended", playRandom);
+
+        try {
+          const response = await fetch(apiCall);
+          const json = await response.json();
+
+          if (!response.ok || !json.file) {
+            throw new Error(json.error || "Could not load a bird call.");
+          }
+
+          document.getElementById("speciesDisplayName").innerHTML = `<strong>${commonName}</strong> (${speciesName})`;
+          document.getElementById("callType").innerHTML = json.type;
+          document.getElementById("cnt").innerHTML = json.country;
+          document.getElementById("loc").innerHTML = json.location;
+          audioPlayer.src = json.file;
+          modal.style.display = "block";
+          audioPlayer.play();
+          if (mode === "random") {
+            audioPlayer.addEventListener("ended", playRandom);
+          }
+        } catch (error) {
+          alert(error.message || "Could not load a bird call.");
         }
       }
 
       function playRandom() {
         mode = "random";
-        let tableRows = document.querySelectorAll('#species-table tr');
+        let tableRows = document.querySelectorAll('#species-table tbody tr');
+        if (!tableRows.length) {
+          alert("No species are available to play yet.");
+          return;
+        }
         let randomIndex = Math.floor(Math.random() * tableRows.length);
         let randomRow = tableRows[randomIndex];
         let link = randomRow.querySelector('a');

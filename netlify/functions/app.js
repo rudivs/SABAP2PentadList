@@ -5,17 +5,68 @@ const serverless = require('serverless-http');
 const app = express();
 const bodyParser = require('body-parser');
 const router = express.Router();
+const XENO_CANTO_API_URL = 'https://xeno-canto.org/api/3/recordings';
+const XENO_CANTO_API_KEY = process.env.XENO_CANTO_API_KEY || process.env.XC_API_KEY;
 
-function fetchCalls(species, quality, country){
-  let apiUrl = `https://www.xeno-canto.org/api/2/recordings?query=${species}`;
+function quoteQueryValue(value) {
+  return `"${String(value).replace(/"/g, '\\"')}"`;
+}
+
+function buildScientificNameQuery(speciesName, quality, country) {
+  const filters = [`grp:birds`, `sp:${quoteQueryValue(speciesName)}`];
   if (quality) {
-    apiUrl += `%20q:${quality}`;
+    filters.push(`q:${quality}`);
   }
   if (country) {
-    apiUrl += `%20cnt:%22${country}%22`;
+    filters.push(`cnt:${quoteQueryValue(country)}`);
   }
-  console.log(`Fetching '${apiUrl}'...`)
-  return fetch(apiUrl).then(response => response.json());
+  return filters.join(' ');
+}
+
+function buildCommonNameQuery(commonName, country) {
+  const filters = [`grp:birds`, `en:${quoteQueryValue(`=${commonName}`)}`];
+  if (country) {
+    filters.push(`cnt:${quoteQueryValue(country)}`);
+  }
+  return filters.join(' ');
+}
+
+async function fetchCalls(query) {
+  if (!XENO_CANTO_API_KEY) {
+    const error = new Error('Missing XENO_CANTO_API_KEY or XC_API_KEY');
+    error.code = 'MISSING_XENO_CANTO_API_KEY';
+    throw error;
+  }
+
+  const apiUrl = new URL(XENO_CANTO_API_URL);
+  apiUrl.searchParams.set('query', query);
+  apiUrl.searchParams.set('key', XENO_CANTO_API_KEY);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  console.log(`Fetching '${apiUrl.toString()}'...`);
+
+  try {
+    const response = await fetch(apiUrl, { signal: controller.signal });
+    const data = await response.json();
+
+    if (!response.ok || data?.error) {
+      const error = new Error(data?.message || `xeno-canto request failed with status ${response.status}`);
+      error.code = 'XENO_CANTO_API_ERROR';
+      throw error;
+    }
+
+    if (!Array.isArray(data?.recordings)) {
+      const error = new Error('Unexpected xeno-canto response shape');
+      error.code = 'XENO_CANTO_INVALID_RESPONSE';
+      throw error;
+    }
+
+    return data.recordings;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 router.get('/results', async (req, res) => {
@@ -109,9 +160,10 @@ router.get('/results', async (req, res) => {
       <title>Pentad ${pentadCode}</title>
     </head>
     <body>
-      <h1>Pentad ${pentadCode} Species List</h1>
-      <div style="width:500px">
-        <table id="species-table" class="display compact">
+      <div class="results-section">
+        <h1>Pentad ${pentadCode} Species List</h1>
+        <div class="results-table">
+          <table id="species-table" class="display compact">
           <thead>
             <tr>
               <th>Species</th>
@@ -130,11 +182,13 @@ router.get('/results', async (req, res) => {
               </tr>
             `).join('')}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-      <h2>Possible Species</h2>
-      <div style="width:500px">
-        <table id="possible-species" class="display compact">
+      <div class="results-section">
+        <h2>Possible Species</h2>
+        <div class="results-table">
+          <table id="possible-species" class="display compact">
           <thead>
             <tr>
               <th>Group</th>
@@ -156,7 +210,8 @@ router.get('/results', async (req, res) => {
                 `;
               }).join('')}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </body>
   </html>
@@ -170,31 +225,55 @@ router.get('/results', async (req, res) => {
     const speciesName = req.query.speciesName;
     const commonName = req.query.commonName;
     const country = req.query.cnt;
-    // first try to find a call with high quality from South Africa
-    let data = await fetchCalls(speciesName, 'A', 'South Africa');
-    // if no high quality calls from South Africa, try to find a high quality call from anywhere
-    if (!data.recordings.length) {
-      data = await fetchCalls(speciesName, 'A', null);
+    const queries = [
+      buildScientificNameQuery(speciesName, 'A', country || 'South Africa'),
+      buildScientificNameQuery(speciesName, 'A', null),
+      buildCommonNameQuery(commonName, country || 'South Africa'),
+      buildCommonNameQuery(commonName, null)
+    ];
+
+    try {
+      let recordings = [];
+
+      for (const query of queries) {
+        recordings = await fetchCalls(query);
+        if (recordings.length) {
+          break;
+        }
+      }
+
+      if (!recordings.length) {
+        res.status(404).json({ error: 'No matching recordings found' });
+        return;
+      }
+
+      let randomIndex = Math.floor(Math.random() * recordings.length);
+      let result = {};
+      result.file = recordings[randomIndex].file;
+      result.country = recordings[randomIndex].cnt;
+      result.location = recordings[randomIndex].loc;
+      result.type = recordings[randomIndex].type;
+      console.log(result.file);
+      res.json(result);
+    } catch (error) {
+      console.error('Fetching bird call failed:', error);
+
+      if (error.code === 'MISSING_XENO_CANTO_API_KEY') {
+        res.status(503).json({
+          error: 'Xeno-canto API key is not configured. Set XENO_CANTO_API_KEY or XC_API_KEY.'
+        });
+        return;
+      }
+
+      if (error.name === 'AbortError') {
+        res.status(504).json({ error: 'Timed out while fetching audio from xeno-canto' });
+        return;
+      }
+
+      res.status(502).json({
+        error: error.message || 'Fetching bird call failed'
+      });
     }
-    // if still no calls, it could be a taxonomic issue, try with the common name
-    if (!data.recordings.length) {
-      data = await fetchCalls(commonName, null, null);
-    }
-    if (!data.recordings.length) {
-      res.status(404).send('Not found');
-      return;
-    }
-    const recordings = data.recordings;
-    let randomIndex = Math.floor(Math.random() * recordings.length);
-    let result = {};
-    result.file = recordings[randomIndex].file;
-    result.country = recordings[randomIndex].cnt;
-    result.location = recordings[randomIndex].loc;
-    result.type = recordings[randomIndex].type;
-    console.log(result.file);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.write(JSON.stringify(result));
-    res.end();
     });
 
   app.use(bodyParser.json());
