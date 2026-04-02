@@ -100,6 +100,7 @@ router.get('/results', async (req, res) => {
   console.log('Fetching bird list...');
   const pentadCode = req.query.pentadCode;
   let species;
+  let adjacentFailures = 0;
   try {
     species = await fetchPentadSpecies(pentadCode, MAIN_PENTAD_TIMEOUT_MS);
     if (species.length) {
@@ -133,20 +134,21 @@ router.get('/results', async (req, res) => {
         const adjacentSpecies = await fetchPentadSpecies(pentad, ADJACENT_PENTAD_TIMEOUT_MS);
         if (!adjacentSpecies.length) {
           console.log(`Pentad ${pentad} returned no species`);
-          return [];
+          return { species: [], failed: false };
         }
         console.log(`Pentad ${pentad} returned ${adjacentSpecies.length} species...`);
-        return adjacentSpecies;
+        return { species: adjacentSpecies, failed: false };
       } catch (error) {
         if (error.name === 'AbortError') {
           console.error(`Fetching ${pentad} timed out`);
         } else {
           console.error(`Fetching ${pentad} failed:`, error);
         }
-        return [];
+        return { species: [], failed: true };
       }
     }));
-  let speciesAdjacentPentads = [].concat(...speciesLists);
+  adjacentFailures = speciesLists.filter(result => result.failed).length;
+  let speciesAdjacentPentads = [].concat(...speciesLists.map(result => result.species));
     if (species && species.length > 0) {
     speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
       return !species.some(species => species.Ref === speciesAdjacent?.Ref);
@@ -178,7 +180,11 @@ router.get('/results', async (req, res) => {
     sortOrder = parseInt(req.query.sortOrder);
   }
   species = species.sort((a,b) => sortOrder * (b[sortKey] - a[sortKey]));
-  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.writeHead(200, {
+    'Content-Type': 'text/html',
+    'X-Pentad-Results-Complete': adjacentFailures === 0 ? 'true' : 'false',
+    'X-Pentad-Adjacent-Failures': String(adjacentFailures)
+  });
   res.write(`
   <html>
     <head>

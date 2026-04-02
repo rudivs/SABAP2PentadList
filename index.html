@@ -153,6 +153,27 @@
         display: block;
       }
 
+      .results-notice {
+        display: none;
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        max-width: 420px;
+        border-radius: 8px;
+        border: 1px solid #c8d7eb;
+        background: #edf4fc;
+        color: #184a95;
+      }
+
+      .results-notice.active {
+        display: block;
+      }
+
+      .results-notice.warning {
+        border-color: #e7cf9a;
+        background: #fff8e7;
+        color: #7a5a00;
+      }
+
       #play-random {
         display: inline-block;
         margin: 8px 0 20px;
@@ -262,6 +283,131 @@
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
+      const PENTAD_CACHE_PREFIX = 'pentad-results:';
+      const PENTAD_CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
+
+      function getCacheKey(pentadCode) {
+        return PENTAD_CACHE_PREFIX + pentadCode;
+      }
+
+      function readCachedResults(pentadCode) {
+        try {
+          const rawValue = localStorage.getItem(getCacheKey(pentadCode));
+          if (!rawValue) {
+            return null;
+          }
+
+          const cached = JSON.parse(rawValue);
+          if (!cached || !cached.html || !cached.cachedAt) {
+            localStorage.removeItem(getCacheKey(pentadCode));
+            return null;
+          }
+
+          if (Date.now() - cached.cachedAt > PENTAD_CACHE_TTL_MS) {
+            localStorage.removeItem(getCacheKey(pentadCode));
+            return null;
+          }
+
+          return cached;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function writeCachedResults(pentadCode, html) {
+        try {
+          localStorage.setItem(
+            getCacheKey(pentadCode),
+            JSON.stringify({
+              html: html,
+              cachedAt: Date.now()
+            })
+          );
+        } catch (error) {
+          console.warn('Could not cache pentad results locally.', error);
+        }
+      }
+
+      function clearCachedResults(pentadCode) {
+        try {
+          localStorage.removeItem(getCacheKey(pentadCode));
+        } catch (error) {
+          console.warn('Could not clear cached pentad results.', error);
+        }
+      }
+
+      function initializeResultsTables() {
+        $('#species-table').DataTable({
+            "order": [[ 2, "desc" ]],
+            "paging": false,
+            "scrollX": true,
+            "autoWidth": false,
+            columnDefs: [
+                { width: '35%', targets: 0 },
+                { width: '35%', targets: 1 },
+                { width: '15%', targets: 2 },
+                { width: '15%', targets: 3 }
+            ],
+        });
+
+        $('#possible-species').DataTable({
+            "order": [[ 2, "desc" ]],
+            "paging": false,
+            "scrollX": true,
+            "autoWidth": false,
+            columnDefs: [
+                { width: '35%', targets: 0 },
+                { width: '35%', targets: 1 },
+                { width: '15%', targets: 2 },
+                { width: '15%', targets: 3 }
+            ],
+        });
+      }
+
+      function setResultsNotice(message, tone) {
+        const resultsNotice = document.getElementById('results-notice');
+        resultsNotice.textContent = message || '';
+        resultsNotice.classList.remove('active', 'warning');
+
+        if (!message) {
+          return;
+        }
+
+        resultsNotice.classList.add('active');
+        if (tone === 'warning') {
+          resultsNotice.classList.add('warning');
+        }
+      }
+
+      function renderResults(html, options) {
+        const opts = options || {};
+        const results = document.getElementById('results');
+        results.innerHTML = html;
+        initializeResultsTables();
+        document.getElementById("play-random").style.display = "block";
+
+        if (opts.fromCache) {
+          const cachedAt = new Date(opts.cachedAt);
+          setResultsNotice(
+            `Showing cached results from ${cachedAt.toLocaleString()}.`,
+            'info'
+          );
+          return;
+        }
+
+        if (opts.partial) {
+          const count = opts.adjacentFailures || 0;
+          const noun = count === 1 ? 'pentad request' : 'pentad requests';
+          setResultsNotice(
+            `Results loaded, but ${count} adjacent ${noun} failed or timed out. These partial results were not cached.`,
+            'warning'
+          );
+          return;
+        }
+
+        setResultsNotice('Results loaded and cached locally for 5 days.', 'info');
+      }
+
       function callResults() {
         // Get the pentad code value from the form
         var pentadCode = document.getElementById('pentadCode').value;
@@ -277,13 +423,28 @@
           submitButton.disabled = false;
           requestStatus.textContent = message;
           requestStatus.classList.add('active');
+          setResultsNotice('');
           results.innerHTML = '';
+        }
+
+        const cachedResults = readCachedResults(pentadCode);
+        if (cachedResults) {
+          requestStatus.textContent = '';
+          requestStatus.classList.remove('active');
+          loadingIndicator.classList.remove('active');
+          submitButton.disabled = false;
+          renderResults(cachedResults.html, {
+            fromCache: true,
+            cachedAt: cachedResults.cachedAt
+          });
+          return;
         }
 
         loadingIndicator.classList.add('active');
         submitButton.disabled = true;
         requestStatus.textContent = '';
         requestStatus.classList.remove('active');
+        setResultsNotice('');
         results.innerHTML = '';
         document.getElementById("play-random").style.display = "none";
         xhr.timeout = 25000;
@@ -293,35 +454,19 @@
           if (this.readyState === 4 && this.status === 200) {
             loadingIndicator.classList.remove('active');
             submitButton.disabled = false;
-            results.innerHTML = this.responseText;
-            // Initialize the DataTables plugin on the table
-            $('#species-table').DataTable({
-                "order": [[ 2, "desc" ]],
-                "paging": false,
-                "scrollX": true,
-                "autoWidth": false,
-                columnDefs: [
-                    { width: '35%', targets: 0 },
-                    { width: '35%', targets: 1 },
-                    { width: '15%', targets: 2 },
-                    { width: '15%', targets: 3 }
-                ],
-            });
+            const isComplete = this.getResponseHeader('X-Pentad-Results-Complete') === 'true';
+            const adjacentFailures = parseInt(this.getResponseHeader('X-Pentad-Adjacent-Failures') || '0', 10);
 
-            $('#possible-species').DataTable({
-                "order": [[ 2, "desc" ]],
-                "paging": false,
-                "scrollX": true,
-                "autoWidth": false,
-                columnDefs: [
-                    { width: '35%', targets: 0 },
-                    { width: '35%', targets: 1 },
-                    { width: '15%', targets: 2 },
-                    { width: '15%', targets: 3 }
-                ],
-            });
+            if (isComplete) {
+              writeCachedResults(pentadCode, this.responseText);
+            } else {
+              clearCachedResults(pentadCode);
+            }
 
-            document.getElementById("play-random").style.display = "block";
+            renderResults(this.responseText, {
+              partial: !isComplete,
+              adjacentFailures: adjacentFailures
+            });
           } else if (this.readyState === 4) {
             showRequestFailure(this.responseText || 'Fetching bird list failed. Please try again.');
           }
@@ -357,6 +502,7 @@
         <div class="loading-bar"></div>
       </div>
       <div class="request-status" id="request-status" role="alert"></div>
+      <div class="results-notice" id="results-notice" aria-live="polite"></div>
       <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
       <div id="results"></div>
       <div id="myModal" class="modal">
