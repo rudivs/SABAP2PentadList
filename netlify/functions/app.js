@@ -102,6 +102,11 @@ router.get('/results', async (req, res) => {
   let species;
   try {
     species = await fetchPentadSpecies(pentadCode, MAIN_PENTAD_TIMEOUT_MS);
+    if (species.length) {
+      console.log(`Main pentad ${pentadCode} returned ${species.length} species...`);
+    } else {
+      console.log(`Main pentad ${pentadCode} returned no species`);
+    }
   }
   catch (error) {
     console.error(`Fetching ${pentadCode} failed:`, error);

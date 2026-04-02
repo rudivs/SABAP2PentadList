@@ -286,7 +286,7 @@
         requestStatus.classList.remove('active');
         results.innerHTML = '';
         document.getElementById("play-random").style.display = "none";
-        xhr.timeout = 15000;
+        xhr.timeout = 25000;
         xhr.open('GET', '/.netlify/functions/app/results?pentadCode=' + pentadCode, true);
         xhr.onreadystatechange = function () {
           // When the request is successful, display the returned html in the page
