@@ -93,6 +93,66 @@
         font-size: 14px;
       }
 
+      .loading-indicator {
+        display: none;
+        margin: 8px 0 20px;
+      }
+
+      .loading-indicator.active {
+        display: block;
+      }
+
+      .loading-label {
+        margin: 0 0 8px;
+        color: #4f5b67;
+        font-size: 14px;
+      }
+
+      .loading-bar {
+        position: relative;
+        width: 100%;
+        max-width: 420px;
+        height: 10px;
+        overflow: hidden;
+        background: #dfe7f1;
+        border-radius: 999px;
+      }
+
+      .loading-bar::after {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 -40%;
+        width: 40%;
+        background: linear-gradient(90deg, #1e5bb8, #58a6ff);
+        border-radius: inherit;
+        animation: loading-slide 1.1s ease-in-out infinite;
+      }
+
+      @keyframes loading-slide {
+        from {
+          transform: translateX(0);
+        }
+
+        to {
+          transform: translateX(350%);
+        }
+      }
+
+      .request-status {
+        display: none;
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        max-width: 420px;
+        border-radius: 8px;
+        border: 1px solid #e2b4b4;
+        background: #fff1f1;
+        color: #8a1f1f;
+      }
+
+      .request-status.active {
+        display: block;
+      }
+
       #play-random {
         display: inline-block;
         margin: 8px 0 20px;
@@ -205,13 +265,35 @@
       function callResults() {
         // Get the pentad code value from the form
         var pentadCode = document.getElementById('pentadCode').value;
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const requestStatus = document.getElementById('request-status');
+        const submitButton = document.getElementById('submit-button');
+        const results = document.getElementById('results');
         // Make a GET request to the /results endpoint with the pentad code as a query parameter
         var xhr = new XMLHttpRequest();
+
+        function showRequestFailure(message) {
+          loadingIndicator.classList.remove('active');
+          submitButton.disabled = false;
+          requestStatus.textContent = message;
+          requestStatus.classList.add('active');
+          results.innerHTML = '';
+        }
+
+        loadingIndicator.classList.add('active');
+        submitButton.disabled = true;
+        requestStatus.textContent = '';
+        requestStatus.classList.remove('active');
+        results.innerHTML = '';
+        document.getElementById("play-random").style.display = "none";
+        xhr.timeout = 15000;
         xhr.open('GET', '/.netlify/functions/app/results?pentadCode=' + pentadCode, true);
         xhr.onreadystatechange = function () {
           // When the request is successful, display the returned html in the page
           if (this.readyState === 4 && this.status === 200) {
-            document.getElementById('results').innerHTML = this.responseText;
+            loadingIndicator.classList.remove('active');
+            submitButton.disabled = false;
+            results.innerHTML = this.responseText;
             // Initialize the DataTables plugin on the table
             $('#species-table').DataTable({
                 "order": [[ 2, "desc" ]],
@@ -240,7 +322,18 @@
             });
 
             document.getElementById("play-random").style.display = "block";
+          } else if (this.readyState === 4) {
+            showRequestFailure(this.responseText || 'Fetching bird list failed. Please try again.');
           }
+        };
+        xhr.onerror = function () {
+          showRequestFailure('Could not reach the pentad service. Please try again.');
+        };
+        xhr.ontimeout = function () {
+          showRequestFailure('Fetching bird list timed out. Please try again.');
+        };
+        xhr.onabort = function () {
+          showRequestFailure('Fetching bird list was interrupted. Please try again.');
         };
         xhr.send();
       }
@@ -257,8 +350,13 @@
           <button type="button" class="secondary-button" id="use-location" onclick="useCurrentLocation()">Use current location</button>
         </div>
         <p class="location-status" id="location-status" aria-live="polite"></p>
-        <button type="submit">Submit</button>
+        <button type="submit" id="submit-button">Submit</button>
       </form>
+      <div class="loading-indicator" id="loading-indicator" aria-live="polite" aria-hidden="true">
+        <p class="loading-label">Fetching pentad lists...</p>
+        <div class="loading-bar"></div>
+      </div>
+      <div class="request-status" id="request-status" role="alert"></div>
       <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
       <div id="results"></div>
       <div id="myModal" class="modal">

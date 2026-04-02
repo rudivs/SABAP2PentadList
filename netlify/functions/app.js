@@ -69,21 +69,44 @@ async function fetchCalls(query) {
   }
 }
 
+async function fetchPentadSpecies(pentadCode, timeoutMs) {
+  const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    console.log(`Fetching ${pentadCode} from ${apiUrl}...`);
+    const response = await fetch(apiUrl, { signal: controller.signal });
+
+    if (!response.ok) {
+      const error = new Error(`SABAP2 request failed with status ${response.status}`);
+      error.code = 'SABAP2_API_ERROR';
+      throw error;
+    }
+
+    const data = await response.json();
+    return data?.data?.species || [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 router.get('/results', async (req, res) => {
   console.log('Fetching bird list...');
   const pentadCode = req.query.pentadCode;
-  const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
-  let response;
+  let species;
   try {
-    response = await fetch(apiUrl);
+    species = await fetchPentadSpecies(pentadCode, 10000);
   }
   catch (error) {
     console.error(`Fetching ${pentadCode} failed:`, error);
+    if (error.name === 'AbortError') {
+      res.status(504).send('Fetching bird list timed out');
+      return;
+    }
     res.status(500).send('Fetching bird list failed');
     return;
   }
-  const data = await response.json();
-  let species = data.data.species;
   const [x, y] = pentadCode.split('_').map(str => parseInt(str));
   const pentads = [
     `${x - 5}_${y - 5}`,
@@ -97,19 +120,14 @@ router.get('/results', async (req, res) => {
     `${x + 5}_${y + 5}`
     ];
     const speciesLists = await Promise.all(pentads.map(async pentad => { 
-      const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentad}?format=JSON`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       try {
-        console.log(`Fetching ${pentad} from ${apiUrl}...`);
-        const response = await fetch(apiUrl, { signal: controller.signal });
-        const data = await response.json();
-        if (!data.data.species) {
+        const adjacentSpecies = await fetchPentadSpecies(pentad, 5000);
+        if (!adjacentSpecies.length) {
           console.log(`Pentad ${pentad} returned no species`);
           return [];
         }
-        console.log(`Pentad ${pentad} returned ${data.data.species.length} species...`);
-        return data.data.species;
+        console.log(`Pentad ${pentad} returned ${adjacentSpecies.length} species...`);
+        return adjacentSpecies;
       } catch (error) {
         if (error.name === 'AbortError') {
           console.error(`Fetching ${pentad} timed out`);
@@ -117,8 +135,6 @@ router.get('/results', async (req, res) => {
           console.error(`Fetching ${pentad} failed:`, error);
         }
         return [];
-      } finally {
-        clearTimeout(timeoutId);
       }
     }));
   let speciesAdjacentPentads = [].concat(...speciesLists);
