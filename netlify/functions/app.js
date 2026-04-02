@@ -7,6 +7,8 @@ const bodyParser = require('body-parser');
 const router = express.Router();
 const XENO_CANTO_API_URL = 'https://xeno-canto.org/api/3/recordings';
 const XENO_CANTO_API_KEY = process.env.XENO_CANTO_API_KEY || process.env.XC_API_KEY;
+const MAIN_PENTAD_TIMEOUT_MS = 10000;
+const ADJACENT_PENTAD_TIMEOUT_MS = 8000;
 
 function quoteQueryValue(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`;
@@ -41,11 +43,14 @@ async function fetchCalls(query) {
   const apiUrl = new URL(XENO_CANTO_API_URL);
   apiUrl.searchParams.set('query', query);
   apiUrl.searchParams.set('key', XENO_CANTO_API_KEY);
+  const logUrl = new URL(XENO_CANTO_API_URL);
+  logUrl.searchParams.set('query', query);
+  logUrl.searchParams.set('key', '[redacted]');
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  console.log(`Fetching '${apiUrl.toString()}'...`);
+  console.log(`Fetching '${logUrl.toString()}'...`);
 
   try {
     const response = await fetch(apiUrl, { signal: controller.signal });
@@ -96,7 +101,7 @@ router.get('/results', async (req, res) => {
   const pentadCode = req.query.pentadCode;
   let species;
   try {
-    species = await fetchPentadSpecies(pentadCode, 10000);
+    species = await fetchPentadSpecies(pentadCode, MAIN_PENTAD_TIMEOUT_MS);
   }
   catch (error) {
     console.error(`Fetching ${pentadCode} failed:`, error);
@@ -113,7 +118,6 @@ router.get('/results', async (req, res) => {
     `${x}_${y - 5}`,
     `${x + 5}_${y - 5}`,
     `${x - 5}_${y}`,
-    `${x}_${y}`,
     `${x + 5}_${y}`,
     `${x - 5}_${y + 5}`,
     `${x}_${y + 5}`,
@@ -121,7 +125,7 @@ router.get('/results', async (req, res) => {
     ];
     const speciesLists = await Promise.all(pentads.map(async pentad => { 
       try {
-        const adjacentSpecies = await fetchPentadSpecies(pentad, 5000);
+        const adjacentSpecies = await fetchPentadSpecies(pentad, ADJACENT_PENTAD_TIMEOUT_MS);
         if (!adjacentSpecies.length) {
           console.log(`Pentad ${pentad} returned no species`);
           return [];
