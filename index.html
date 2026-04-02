@@ -32,6 +32,13 @@
         max-width: 420px;
       }
 
+      .query-form-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: stretch;
+      }
+
       .query-form label {
         font-weight: 600;
       }
@@ -58,9 +65,32 @@
         cursor: pointer;
       }
 
+      .query-form button.secondary-button {
+        background: #e7eef7;
+        color: #184a95;
+        border: 1px solid #b8c9df;
+      }
+
       .query-form button:hover,
       .query-form button:focus {
         background: #184a95;
+      }
+
+      .query-form button.secondary-button:hover,
+      .query-form button.secondary-button:focus {
+        background: #d7e5f6;
+      }
+
+      .query-form button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
+      .location-status {
+        min-height: 1.5em;
+        margin: 0;
+        color: #4f5b67;
+        font-size: 14px;
       }
 
       #play-random {
@@ -145,6 +175,10 @@
           padding: 20px 12px 32px;
         }
 
+        .query-form-row {
+          grid-template-columns: 1fr;
+        }
+
         .modal-content {
           margin: 16px auto;
           max-height: calc(100vh - 32px);
@@ -218,7 +252,11 @@
       <h1>Pentad Code Query</h1>
       <form class="query-form" onsubmit="callResults(); return false;">
         <label for="pentadCode">Enter pentad code:</label>
-        <input type="text" id="pentadCode" name="pentadCode">
+        <div class="query-form-row">
+          <input type="text" id="pentadCode" name="pentadCode" placeholder="2525_2815">
+          <button type="button" class="secondary-button" id="use-location" onclick="useCurrentLocation()">Use current location</button>
+        </div>
+        <p class="location-status" id="location-status" aria-live="polite"></p>
         <button type="submit">Submit</button>
       </form>
       <a href="#" onclick="playRandom(); return false;" id="play-random" style="display:none;">Learn calls</a>
@@ -243,7 +281,79 @@
       const modal = document.getElementById("myModal");
       const audioPlayer = document.getElementById("audioPlayer");
       const close = document.getElementsByClassName("close")[0];
+      const pentadCodeInput = document.getElementById("pentadCode");
+      const useLocationButton = document.getElementById("use-location");
+      const locationStatus = document.getElementById("location-status");
       let mode = "single";
+
+      function zeroPad(value, length) {
+        return String(value).padStart(length, "0");
+      }
+
+      function getPentadCode(latitude, longitude) {
+        const latAbs = Math.abs(latitude);
+        const lonAbs = Math.abs(longitude);
+        const latDeg = Math.floor(latAbs);
+        const lonDeg = Math.floor(lonAbs);
+        const latMinTotal = (latAbs - latDeg) * 60;
+        const lonMinTotal = (lonAbs - lonDeg) * 60;
+        const latMin = Math.floor(latMinTotal / 5) * 5;
+        const lonMin = Math.floor(lonMinTotal / 5) * 5;
+        const latPart = zeroPad(latDeg, 2) + zeroPad(latMin, 2);
+        const lonPart = zeroPad(lonDeg, 2) + zeroPad(lonMin, 2);
+        return `${latPart}_${lonPart}`;
+      }
+
+      function setLocationStatus(message) {
+        locationStatus.textContent = message;
+      }
+
+      function useCurrentLocation() {
+        if (!navigator.geolocation) {
+          setLocationStatus("Location is not supported by this browser.");
+          return;
+        }
+
+        useLocationButton.disabled = true;
+        setLocationStatus("Getting your current location...");
+
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            const pentadCode = getPentadCode(
+              position.coords.latitude,
+              position.coords.longitude
+            );
+            pentadCodeInput.value = pentadCode;
+            useLocationButton.disabled = false;
+            setLocationStatus(`Pentad code set to ${pentadCode}.`);
+          },
+          function (error) {
+            useLocationButton.disabled = false;
+
+            if (error.code === error.PERMISSION_DENIED) {
+              setLocationStatus("Location access was denied.");
+              return;
+            }
+
+            if (error.code === error.POSITION_UNAVAILABLE) {
+              setLocationStatus("Current location is unavailable.");
+              return;
+            }
+
+            if (error.code === error.TIMEOUT) {
+              setLocationStatus("Timed out while getting your location.");
+              return;
+            }
+
+            setLocationStatus("Could not determine your current location.");
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000
+          }
+        );
+      }
     
       async function playCall(speciesName, commonName) {
         let apiCall = `/.netlify/functions/app/call?speciesName=${encodeURIComponent(speciesName)}&commonName=${encodeURIComponent(commonName)}`;
