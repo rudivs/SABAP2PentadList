@@ -158,6 +158,16 @@ function formatReportingRate(value) {
   return `${numericValue.toFixed(1)}%`;
 }
 
+function buildBirdDisplayName(commonSpecies, commonGroup) {
+  return `${commonSpecies || ''} ${commonGroup || ''}`.trim();
+}
+
+function buildBirdNameCell(commonSpecies, commonGroup) {
+  const displayName = buildBirdDisplayName(commonSpecies, commonGroup);
+  const sortValue = `${commonGroup || ''} ${commonSpecies || ''}`.trim().toLowerCase();
+  return `<td data-order="${escapeHtml(sortValue)}">${escapeHtml(displayName)}</td>`;
+}
+
 function buildGridCell(svg, orderValue) {
   const sortAttribute = orderValue === undefined ? '' : ` data-order="${escapeHtml(orderValue)}"`;
   return `<td class="grid-column-cell"${sortAttribute}>${svg}</td>`;
@@ -437,8 +447,7 @@ router.get('/results', async (req, res) => {
           <table id="species-table" class="display compact">
           <thead>
             <tr>
-              <th>Species</th>
-              <th>Group</th>
+              <th>Bird</th>
               <th>Call</th>
               <th>Grid</th>
             </tr>
@@ -446,14 +455,13 @@ router.get('/results', async (req, res) => {
           <tbody>
             ${species.map(species =>`
               <tr>
-                <td>${escapeHtml(species.Common_species || '')}</td>
-                <td>${escapeHtml(species.Common_group || '')}</td>
-                <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
+                ${buildBirdNameCell(species.Common_species, species.Common_group)}
+                <td>${buildListenLink(`${species.Genus} ${species.Species}`, buildBirdDisplayName(species.Common_species, species.Common_group))}</td>
                 ${buildToggleGridCell(
                   species.GridSvg,
                   Number.parseFloat(species.fp) || 0,
                   formatReportingRate(species.fp),
-                  `${species.Common_species} ${species.Common_group || ''}`.trim()
+                  buildBirdDisplayName(species.Common_species, species.Common_group)
                 )}
               </tr>
             `).join('')}
@@ -467,8 +475,7 @@ router.get('/results', async (req, res) => {
           <table id="possible-species" class="display compact">
           <thead>
             <tr>
-              <th>Group</th>
-              <th>Species</th>
+              <th>Bird</th>
               <th>Call</th>
               <th>Grid</th>
             </tr>
@@ -478,9 +485,8 @@ router.get('/results', async (req, res) => {
               .map(species => {
                 return `
                   <tr>
-                    <td>${escapeHtml(species.Common_group || '')}</td>
-                    <td>${escapeHtml(species.Common_species || '')}</td>
-                    <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
+                    ${buildBirdNameCell(species.Common_species, species.Common_group)}
+                    <td>${buildListenLink(`${species.Genus} ${species.Species}`, buildBirdDisplayName(species.Common_species, species.Common_group))}</td>
                     ${buildGridCell(species.GridSvg, species.Pentads)}
                   </tr>
                 `;

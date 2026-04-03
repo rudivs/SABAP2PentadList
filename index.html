@@ -365,7 +365,7 @@
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
-      const PENTAD_CACHE_VERSION = 'v5';
+      const PENTAD_CACHE_VERSION = 'v6';
       const PENTAD_CACHE_PREFIX = `pentad-results:${PENTAD_CACHE_VERSION}:`;
       const PENTAD_CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -436,28 +436,26 @@
 
       function initializeResultsTables() {
         $('#species-table').DataTable({
-            "order": [[ 3, "desc" ]],
+            "order": [[ 2, "desc" ]],
             "paging": false,
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '38%', targets: 0 },
-                { width: '30%', targets: 1 },
-                { width: '14%', targets: 2, orderable: false },
-                { width: '18%', targets: 3, className: 'grid-column-cell' }
+                { width: '58%', targets: 0 },
+                { width: '16%', targets: 1, orderable: false },
+                { width: '26%', targets: 2, className: 'grid-column-cell' }
             ],
         });
 
         $('#possible-species').DataTable({
-            "order": [[ 3, "desc" ]],
+            "order": [[ 2, "desc" ]],
             "paging": false,
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '28%', targets: 0 },
-                { width: '40%', targets: 1 },
-                { width: '14%', targets: 2, orderable: false },
-                { width: '18%', targets: 3, className: 'grid-column-cell' }
+                { width: '58%', targets: 0 },
+                { width: '16%', targets: 1, orderable: false },
+                { width: '26%', targets: 2, className: 'grid-column-cell' }
             ],
         });
       }
