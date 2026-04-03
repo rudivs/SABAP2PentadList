@@ -155,7 +155,23 @@ function buildGridCell(svg) {
 }
 
 function buildListenLink(scientificName, commonName) {
-  return `<a href="#" data-scientific-name="${escapeHtml(scientificName)}" data-common-name="${escapeHtml(commonName)}" onclick="playCall(this.dataset.scientificName, this.dataset.commonName); return false;">Listen</a>`;
+  return `
+    <a
+      href="#"
+      class="listen-button"
+      aria-label="Play call for ${escapeHtml(commonName)}"
+      title="Play call for ${escapeHtml(commonName)}"
+      data-scientific-name="${escapeHtml(scientificName)}"
+      data-common-name="${escapeHtml(commonName)}"
+      onclick="playCall(this.dataset.scientificName, this.dataset.commonName); return false;"
+    >
+      <svg class="listen-button-icon" viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 9h4l5-4v14l-5-4H5z" fill="currentColor"></path>
+        <path d="M16.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"></path>
+        <path d="M18.75 6a8.25 8.25 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"></path>
+      </svg>
+    </a>
+  `.trim();
 }
 
 function quoteQueryValue(value) {
