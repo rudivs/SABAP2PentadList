@@ -202,6 +202,21 @@
         width: 100% !important;
       }
 
+      .grid-column-cell {
+        text-align: center;
+        vertical-align: middle;
+        min-width: 48px;
+        padding-left: 6px;
+        padding-right: 6px;
+      }
+
+      .pentad-grid-svg {
+        display: block;
+        width: 34px;
+        height: 34px;
+        margin: 0 auto;
+      }
+
       .dataTables_wrapper .dataTables_filter,
       .dataTables_wrapper .dataTables_info,
       .dataTables_wrapper .dataTables_paginate,
@@ -283,7 +298,8 @@
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
-      const PENTAD_CACHE_PREFIX = 'pentad-results:';
+      const PENTAD_CACHE_VERSION = 'v4';
+      const PENTAD_CACHE_PREFIX = `pentad-results:${PENTAD_CACHE_VERSION}:`;
       const PENTAD_CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
 
       function getCacheKey(pentadCode) {
@@ -343,10 +359,11 @@
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '35%', targets: 0 },
-                { width: '35%', targets: 1 },
-                { width: '15%', targets: 2 },
-                { width: '15%', targets: 3 }
+                { width: '31%', targets: 0 },
+                { width: '26%', targets: 1 },
+                { width: '12%', targets: 2 },
+                { width: '13%', targets: 3, orderable: false },
+                { width: '18%', targets: 4, orderable: false, className: 'grid-column-cell' }
             ],
         });
 
@@ -356,21 +373,39 @@
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '35%', targets: 0 },
-                { width: '35%', targets: 1 },
-                { width: '15%', targets: 2 },
-                { width: '15%', targets: 3 }
+                { width: '24%', targets: 0 },
+                { width: '32%', targets: 1 },
+                { width: '12%', targets: 2 },
+                { width: '14%', targets: 3, orderable: false },
+                { width: '18%', targets: 4, orderable: false, className: 'grid-column-cell' }
             ],
         });
       }
 
-      function setResultsNotice(message, tone) {
+      function setResultsNotice(message, tone, options) {
+        const opts = options || {};
         const resultsNotice = document.getElementById('results-notice');
-        resultsNotice.textContent = message || '';
+        resultsNotice.innerHTML = '';
         resultsNotice.classList.remove('active', 'warning');
 
         if (!message) {
           return;
+        }
+
+        const messageSpan = document.createElement('span');
+        messageSpan.textContent = message;
+        resultsNotice.appendChild(messageSpan);
+
+        if (opts.showRefetch) {
+          resultsNotice.appendChild(document.createTextNode(' '));
+          const refetchLink = document.createElement('a');
+          refetchLink.href = '#';
+          refetchLink.textContent = 'Re-fetch';
+          refetchLink.onclick = function () {
+            callResults({ forceRefresh: true });
+            return false;
+          };
+          resultsNotice.appendChild(refetchLink);
         }
 
         resultsNotice.classList.add('active');
@@ -389,8 +424,9 @@
         if (opts.fromCache) {
           const cachedAt = new Date(opts.cachedAt);
           setResultsNotice(
-            `Showing cached results from ${cachedAt.toLocaleString()}.`,
-            'info'
+            `Showing cached results from ${cachedAt.toLocaleDateString()}.`,
+            'info',
+            { showRefetch: true }
           );
           return;
         }
@@ -408,7 +444,8 @@
         setResultsNotice('Results loaded and cached locally for 5 days.', 'info');
       }
 
-      function callResults() {
+      function callResults(options) {
+        const opts = options || {};
         // Get the pentad code value from the form
         var pentadCode = document.getElementById('pentadCode').value;
         const loadingIndicator = document.getElementById('loading-indicator');
@@ -427,7 +464,11 @@
           results.innerHTML = '';
         }
 
-        const cachedResults = readCachedResults(pentadCode);
+        if (opts.forceRefresh) {
+          clearCachedResults(pentadCode);
+        }
+
+        const cachedResults = opts.forceRefresh ? null : readCachedResults(pentadCode);
         if (cachedResults) {
           requestStatus.textContent = '';
           requestStatus.classList.remove('active');

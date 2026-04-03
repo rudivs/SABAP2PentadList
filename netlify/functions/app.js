@@ -10,6 +10,153 @@ const SABAP_PENTAD_PROXY_PATH = '/.netlify/functions/sabap-pentad';
 const XENO_CANTO_API_KEY = process.env.XENO_CANTO_API_KEY || process.env.XC_API_KEY;
 const MAIN_PENTAD_TIMEOUT_MS = 10000;
 const ADJACENT_PENTAD_TIMEOUT_MS = 8000;
+const GRID_LEVEL_UNKNOWN = null;
+const GRID_SHADE_BY_LEVEL = {
+  1: '#d1d5db',
+  2: '#b7bdc7',
+  3: '#9ca3af',
+  4: '#7d8593',
+  5: '#5d6471',
+  6: '#374151',
+  7: '#111827'
+};
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function createEmptyGridMatrix() {
+  return [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0]
+  ];
+}
+
+function setMatrixCell(matrix, rowIndex, columnIndex, state) {
+  matrix[rowIndex][columnIndex] = state;
+}
+
+function getReportingLevel(speciesItem) {
+  const fp = Number.parseFloat(speciesItem?.fp);
+  if (Number.isFinite(fp) && fp > 0) {
+    return Math.min(7, Math.max(1, Math.ceil((fp * 7) / 100)));
+  }
+
+  const ad = Number.parseFloat(speciesItem?.ad);
+  if (Number.isFinite(ad) && ad > 0) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function getPresenceLabel(matrix, centerLevel) {
+  const flatLevels = matrix.flat();
+  const adjacentPresentCount = flatLevels.filter(level => typeof level === 'number' && level > 0).length - (centerLevel > 0 ? 1 : 0);
+  const unknownCount = flatLevels.filter(level => level === GRID_LEVEL_UNKNOWN).length;
+  const centerLabel = centerLevel > 0 ? `current pentad level ${centerLevel}` : 'current pentad absent';
+  const adjacentLabel = adjacentPresentCount === 1 ? '1 adjacent pentad with sightings' : `${adjacentPresentCount} adjacent pentads with sightings`;
+  const unknownLabel = unknownCount === 0 ? '' : (unknownCount === 1 ? '; 1 adjacent pentad unknown' : `; ${unknownCount} adjacent pentads unknown`);
+  return `${centerLabel}; ${adjacentLabel}${unknownLabel}.`;
+}
+
+function buildPentadPresenceSvg(matrix) {
+  const cellSize = 14;
+  const gridSize = cellSize * 3;
+  const cellInset = 1;
+  const dotRadius = 3;
+  let markerMarkup = '';
+
+  matrix.forEach((row, rowIndex) => {
+    row.forEach((level, columnIndex) => {
+      const x = columnIndex * cellSize;
+      const y = rowIndex * cellSize;
+
+      if (typeof level === 'number' && level > 0) {
+        markerMarkup += `<circle cx="${x + (cellSize / 2)}" cy="${y + (cellSize / 2)}" r="${dotRadius}" fill="${GRID_SHADE_BY_LEVEL[level] || GRID_SHADE_BY_LEVEL[1]}"></circle>`;
+        return;
+      }
+
+      if (level === GRID_LEVEL_UNKNOWN) {
+        markerMarkup += `<text x="${x + (cellSize / 2)}" y="${y + 10}" text-anchor="middle" font-size="10" font-family="Arial, sans-serif" fill="#4b5563">?</text>`;
+      }
+    });
+  });
+
+  const title = escapeHtml(getPresenceLabel(matrix, matrix[1][1]));
+  return `
+    <svg class="pentad-grid-svg" viewBox="0 0 ${gridSize} ${gridSize}" role="img" aria-label="${title}" xmlns="http://www.w3.org/2000/svg">
+      <title>${title}</title>
+      <rect x="0" y="0" width="${gridSize}" height="${gridSize}" fill="#ffffff" stroke="#111827" stroke-width="1"></rect>
+      <path d="M ${cellSize} 0 V ${gridSize} M ${cellSize * 2} 0 V ${gridSize} M 0 ${cellSize} H ${gridSize} M 0 ${cellSize * 2} H ${gridSize}" stroke="#111827" stroke-width="1" fill="none"></path>
+      <rect x="${cellSize + cellInset}" y="${cellSize + cellInset}" width="${cellSize - (cellInset * 2)}" height="${cellSize - (cellInset * 2)}" fill="#f8fafc"></rect>
+      ${markerMarkup}
+    </svg>
+  `.trim();
+}
+
+function formatPentadCoordinate(value) {
+  const degrees = Math.floor(value / 60);
+  const minutes = value % 60;
+  return `${String(degrees).padStart(2, '0')}${String(minutes).padStart(2, '0')}`;
+}
+
+function offsetPentadCoordinate(coordinate, deltaMinutes) {
+  const degrees = Math.floor(coordinate / 100);
+  const minutes = coordinate % 100;
+  const totalMinutes = (degrees * 60) + minutes + deltaMinutes;
+
+  return formatPentadCoordinate(totalMinutes);
+}
+
+function getAdjacentPentadPositions(x, y) {
+  return [
+    { pentad: `${offsetPentadCoordinate(x, -5)}_${offsetPentadCoordinate(y, -5)}`, rowIndex: 0, columnIndex: 0 },
+    { pentad: `${offsetPentadCoordinate(x, -5)}_${offsetPentadCoordinate(y, 0)}`, rowIndex: 0, columnIndex: 1 },
+    { pentad: `${offsetPentadCoordinate(x, -5)}_${offsetPentadCoordinate(y, 5)}`, rowIndex: 0, columnIndex: 2 },
+    { pentad: `${offsetPentadCoordinate(x, 0)}_${offsetPentadCoordinate(y, -5)}`, rowIndex: 1, columnIndex: 0 },
+    { pentad: `${offsetPentadCoordinate(x, 0)}_${offsetPentadCoordinate(y, 5)}`, rowIndex: 1, columnIndex: 2 },
+    { pentad: `${offsetPentadCoordinate(x, 5)}_${offsetPentadCoordinate(y, -5)}`, rowIndex: 2, columnIndex: 0 },
+    { pentad: `${offsetPentadCoordinate(x, 5)}_${offsetPentadCoordinate(y, 0)}`, rowIndex: 2, columnIndex: 1 },
+    { pentad: `${offsetPentadCoordinate(x, 5)}_${offsetPentadCoordinate(y, 5)}`, rowIndex: 2, columnIndex: 2 }
+  ];
+}
+
+function buildSpeciesGridMatrix(centerLevel, adjacentLevelsByPentad, adjacentStatuses) {
+  const matrix = createEmptyGridMatrix();
+  setMatrixCell(matrix, 1, 1, centerLevel);
+
+  adjacentStatuses.forEach(({ rowIndex, columnIndex, pentad, failed }) => {
+    if (failed) {
+      setMatrixCell(matrix, rowIndex, columnIndex, GRID_LEVEL_UNKNOWN);
+      return;
+    }
+
+    const level = adjacentLevelsByPentad.get(pentad) || 0;
+    setMatrixCell(
+      matrix,
+      rowIndex,
+      columnIndex,
+      level
+    );
+  });
+
+  return matrix;
+}
+
+function buildGridCell(svg) {
+  return `<td class="grid-column-cell">${svg}</td>`;
+}
+
+function buildListenLink(scientificName, commonName) {
+  return `<a href="#" data-scientific-name="${escapeHtml(scientificName)}" data-common-name="${escapeHtml(commonName)}" onclick="playCall(this.dataset.scientificName, this.dataset.commonName); return false;">Listen</a>`;
+}
 
 function quoteQueryValue(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`;
@@ -129,57 +276,95 @@ router.get('/results', async (req, res) => {
     return;
   }
   const [x, y] = pentadCode.split('_').map(str => parseInt(str));
-  const pentads = [
-    `${x - 5}_${y - 5}`,
-    `${x}_${y - 5}`,
-    `${x + 5}_${y - 5}`,
-    `${x - 5}_${y}`,
-    `${x + 5}_${y}`,
-    `${x - 5}_${y + 5}`,
-    `${x}_${y + 5}`,
-    `${x + 5}_${y + 5}`
-    ];
-    const speciesLists = await Promise.all(pentads.map(async pentad => { 
+  const adjacentPentads = getAdjacentPentadPositions(x, y);
+  const speciesLists = await Promise.all(adjacentPentads.map(async ({ pentad, rowIndex, columnIndex }) => {
       try {
         const adjacentSpecies = await fetchPentadSpeciesViaProxy(req, pentad, ADJACENT_PENTAD_TIMEOUT_MS);
         if (!adjacentSpecies.length) {
           console.log(`Pentad ${pentad} returned no species`);
-          return { species: [], failed: false };
+          return { pentad, rowIndex, columnIndex, species: [], failed: false };
         }
         console.log(`Pentad ${pentad} returned ${adjacentSpecies.length} species...`);
-        return { species: adjacentSpecies, failed: false };
+        return { pentad, rowIndex, columnIndex, species: adjacentSpecies, failed: false };
       } catch (error) {
         if (error.name === 'AbortError') {
           console.error(`Fetching ${pentad} timed out`);
         } else {
           console.error(`Fetching ${pentad} failed:`, error);
         }
-        return { species: [], failed: true };
+        return { pentad, rowIndex, columnIndex, species: [], failed: true };
       }
     }));
   adjacentFailures = speciesLists.filter(result => result.failed).length;
-  let speciesAdjacentPentads = [].concat(...speciesLists.map(result => result.species));
-    if (species && species.length > 0) {
-    speciesAdjacentPentads = speciesAdjacentPentads.filter(speciesAdjacent => {
-      return !species.some(species => species.Ref === speciesAdjacent?.Ref);
+  const adjacentStatuses = speciesLists.map(({ pentad, rowIndex, columnIndex, failed }) => ({
+    pentad,
+    rowIndex,
+    columnIndex,
+    failed
+  }));
+  const adjacentSpeciesByRef = new Map();
+
+  speciesLists.forEach(({ pentad, species: adjacentSpecies }) => {
+    adjacentSpecies.forEach(adjacentSpeciesItem => {
+      if (!adjacentSpeciesItem?.Ref) {
+        return;
+      }
+
+      if (!adjacentSpeciesByRef.has(adjacentSpeciesItem.Ref)) {
+        adjacentSpeciesByRef.set(adjacentSpeciesItem.Ref, {
+          Ref: adjacentSpeciesItem.Ref,
+          Common_group: adjacentSpeciesItem.Common_group,
+          Common_species: adjacentSpeciesItem.Common_species,
+          Genus: adjacentSpeciesItem.Genus,
+          Species: adjacentSpeciesItem.Species,
+          pentadLevels: new Map()
+        });
+      }
+
+      adjacentSpeciesByRef.get(adjacentSpeciesItem.Ref).pentadLevels.set(
+        pentad,
+        getReportingLevel(adjacentSpeciesItem)
+      );
     });
-  }
-  const speciesAdjacent = speciesAdjacentPentads.reduce((counts, species) => {
-    if (!counts[species?.Ref]) {
-      counts[species.Ref] = {
-        Ref: species.Ref,
-        Common_group: species.Common_group,
-        Common_species: species.Common_species,
-        Genus: species.Genus,
-        Species: species.Species,
-        Pentads: 1
+  });
+
+  species = species.map(speciesItem => {
+    const adjacentEntry = adjacentSpeciesByRef.get(speciesItem.Ref);
+    const matrix = buildSpeciesGridMatrix(
+      getReportingLevel(speciesItem),
+      adjacentEntry ? adjacentEntry.pentadLevels : new Map(),
+      adjacentStatuses
+    );
+
+    return {
+      ...speciesItem,
+      GridSvg: buildPentadPresenceSvg(matrix)
+    };
+  });
+
+  const currentPentadRefs = new Set(species.map(speciesItem => speciesItem.Ref));
+  const speciesAdjacentArray = Array.from(adjacentSpeciesByRef.values())
+    .filter(speciesItem => !currentPentadRefs.has(speciesItem.Ref))
+    .map(speciesItem => {
+      const pentadCount = Array.from(speciesItem.pentadLevels.values()).filter(level => level > 0).length;
+      const matrix = buildSpeciesGridMatrix(
+        0,
+        speciesItem.pentadLevels,
+        adjacentStatuses
+      );
+
+      return {
+        Ref: speciesItem.Ref,
+        Common_group: speciesItem.Common_group,
+        Common_species: speciesItem.Common_species,
+        Genus: speciesItem.Genus,
+        Species: speciesItem.Species,
+        Pentads: pentadCount,
+        GridSvg: buildPentadPresenceSvg(matrix)
       };
-    } else {
-      counts[species.Ref].Pentads += 1;
-    }
-    return counts;
-  }, {});
-  const speciesAdjacentArray = Object.values(speciesAdjacent).sort((a, b) => b.Pentads - a.Pentads);
+    })
+    .filter(speciesItem => speciesItem.Pentads > 0)
+    .sort((a, b) => b.Pentads - a.Pentads);
   
   let sortKey = 'fp';
   let sortOrder = 1;
@@ -211,15 +396,17 @@ router.get('/results', async (req, res) => {
               <th>Group</th>
               <th>FP Rate</th>
               <th>Call</th>
+              <th>Grid</th>
             </tr>
           </thead>
           <tbody>
             ${species.map(species =>`
               <tr>
-                <td>${species.Common_species}</td>
-                <td>${species.Common_group || ''}</td>
+                <td>${escapeHtml(species.Common_species || '')}</td>
+                <td>${escapeHtml(species.Common_group || '')}</td>
                 <td>${parseFloat(species.fp).toFixed(1)}</td>
-                <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group}')">Listen</a></td>
+                <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
+                ${buildGridCell(species.GridSvg)}
               </tr>
             `).join('')}
           </tbody>
@@ -236,6 +423,7 @@ router.get('/results', async (req, res) => {
               <th>Species</th>
               <th>Pentads</th>
               <th>Call</th>
+              <th>Grid</th>
             </tr>
           </thead>
           <tbody>
@@ -243,10 +431,11 @@ router.get('/results', async (req, res) => {
               .map(species => {
                 return `
                   <tr>
-                    <td>${species.Common_group || ''}</td>
-                    <td>${species.Common_species}</td>
+                    <td>${escapeHtml(species.Common_group || '')}</td>
+                    <td>${escapeHtml(species.Common_species || '')}</td>
                     <td>${species.Pentads}</td>
-                    <td><a href="#" onclick="playCall('${species.Genus} ${species.Species}', '${species.Common_species} ${species.Common_group}')">Listen</a></td>
+                    <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
+                    ${buildGridCell(species.GridSvg)}
                   </tr>
                 `;
               }).join('')}
