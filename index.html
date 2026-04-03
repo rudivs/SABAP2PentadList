@@ -217,6 +217,49 @@
         margin: 0 auto;
       }
 
+      .grid-toggle-button {
+        position: relative;
+        display: inline-block;
+        width: 42px;
+        height: 34px;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        cursor: pointer;
+        vertical-align: middle;
+      }
+
+      .grid-toggle-button:hover,
+      .grid-toggle-button:focus {
+        background: #edf4fc;
+        outline: none;
+      }
+
+      .grid-toggle-graphic,
+      .grid-toggle-rate {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+      }
+
+      .grid-toggle-rate {
+        font-size: 13px;
+        font-weight: 600;
+        color: inherit;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .grid-toggle-graphic[hidden],
+      .grid-toggle-rate[hidden] {
+        display: none !important;
+      }
+
       .listen-button {
         display: inline-flex;
         align-items: center;
@@ -322,7 +365,7 @@
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
-      const PENTAD_CACHE_VERSION = 'v4';
+      const PENTAD_CACHE_VERSION = 'v5';
       const PENTAD_CACHE_PREFIX = `pentad-results:${PENTAD_CACHE_VERSION}:`;
       const PENTAD_CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -393,30 +436,28 @@
 
       function initializeResultsTables() {
         $('#species-table').DataTable({
-            "order": [[ 2, "desc" ]],
+            "order": [[ 3, "desc" ]],
             "paging": false,
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '31%', targets: 0 },
-                { width: '26%', targets: 1 },
-                { width: '12%', targets: 2 },
-                { width: '13%', targets: 3, orderable: false },
-                { width: '18%', targets: 4, orderable: false, className: 'grid-column-cell' }
+                { width: '38%', targets: 0 },
+                { width: '30%', targets: 1 },
+                { width: '14%', targets: 2, orderable: false },
+                { width: '18%', targets: 3, className: 'grid-column-cell' }
             ],
         });
 
         $('#possible-species').DataTable({
-            "order": [[ 2, "desc" ]],
+            "order": [[ 3, "desc" ]],
             "paging": false,
             "scrollX": true,
             "autoWidth": false,
             columnDefs: [
-                { width: '24%', targets: 0 },
-                { width: '32%', targets: 1 },
-                { width: '12%', targets: 2 },
-                { width: '14%', targets: 3, orderable: false },
-                { width: '18%', targets: 4, orderable: false, className: 'grid-column-cell' }
+                { width: '28%', targets: 0 },
+                { width: '40%', targets: 1 },
+                { width: '14%', targets: 2, orderable: false },
+                { width: '18%', targets: 3, className: 'grid-column-cell' }
             ],
         });
       }
@@ -742,6 +783,27 @@
           audioPlayer.pause();
         }
       }
+
+      document.getElementById('results').addEventListener('click', function (event) {
+        const toggleButton = event.target.closest('.grid-toggle-button');
+        if (!toggleButton) {
+          return;
+        }
+
+        const isShowingRate = toggleButton.classList.toggle('showing-rate');
+        const graphic = toggleButton.querySelector('.grid-toggle-graphic');
+        const rate = toggleButton.querySelector('.grid-toggle-rate');
+
+        if (graphic) {
+          graphic.hidden = isShowingRate;
+        }
+
+        if (rate) {
+          rate.hidden = !isShowingRate;
+        }
+
+        toggleButton.setAttribute('aria-pressed', String(isShowingRate));
+      });
 
       const pentadCodeFromUrl = getPentadCodeFromUrl();
       if (pentadCodeFromUrl) {

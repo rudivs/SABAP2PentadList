@@ -150,8 +150,37 @@ function buildSpeciesGridMatrix(centerLevel, adjacentLevelsByPentad, adjacentSta
   return matrix;
 }
 
-function buildGridCell(svg) {
-  return `<td class="grid-column-cell">${svg}</td>`;
+function formatReportingRate(value) {
+  const numericValue = Number.parseFloat(value);
+  if (!Number.isFinite(numericValue)) {
+    return '0.0%';
+  }
+  return `${numericValue.toFixed(1)}%`;
+}
+
+function buildGridCell(svg, orderValue) {
+  const sortAttribute = orderValue === undefined ? '' : ` data-order="${escapeHtml(orderValue)}"`;
+  return `<td class="grid-column-cell"${sortAttribute}>${svg}</td>`;
+}
+
+function buildToggleGridCell(svg, orderValue, rateText, commonName) {
+  const sortAttribute = orderValue === undefined ? '' : ` data-order="${escapeHtml(orderValue)}"`;
+  const escapedRateText = escapeHtml(rateText);
+  const escapedCommonName = escapeHtml(commonName);
+  return `
+    <td class="grid-column-cell"${sortAttribute}>
+      <button
+        type="button"
+        class="grid-toggle-button"
+        aria-pressed="false"
+        aria-label="Toggle reporting rate for ${escapedCommonName}"
+        title="Toggle reporting rate for ${escapedCommonName}"
+      >
+        <span class="grid-toggle-graphic">${svg}</span>
+        <span class="grid-toggle-rate" hidden>${escapedRateText}</span>
+      </button>
+    </td>
+  `.trim();
 }
 
 function buildListenLink(scientificName, commonName) {
@@ -410,7 +439,6 @@ router.get('/results', async (req, res) => {
             <tr>
               <th>Species</th>
               <th>Group</th>
-              <th>FP Rate</th>
               <th>Call</th>
               <th>Grid</th>
             </tr>
@@ -420,9 +448,13 @@ router.get('/results', async (req, res) => {
               <tr>
                 <td>${escapeHtml(species.Common_species || '')}</td>
                 <td>${escapeHtml(species.Common_group || '')}</td>
-                <td>${parseFloat(species.fp).toFixed(1)}</td>
                 <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
-                ${buildGridCell(species.GridSvg)}
+                ${buildToggleGridCell(
+                  species.GridSvg,
+                  Number.parseFloat(species.fp) || 0,
+                  formatReportingRate(species.fp),
+                  `${species.Common_species} ${species.Common_group || ''}`.trim()
+                )}
               </tr>
             `).join('')}
           </tbody>
@@ -437,7 +469,6 @@ router.get('/results', async (req, res) => {
             <tr>
               <th>Group</th>
               <th>Species</th>
-              <th>Pentads</th>
               <th>Call</th>
               <th>Grid</th>
             </tr>
@@ -449,9 +480,8 @@ router.get('/results', async (req, res) => {
                   <tr>
                     <td>${escapeHtml(species.Common_group || '')}</td>
                     <td>${escapeHtml(species.Common_species || '')}</td>
-                    <td>${species.Pentads}</td>
                     <td>${buildListenLink(`${species.Genus} ${species.Species}`, `${species.Common_species} ${species.Common_group || ''}`.trim())}</td>
-                    ${buildGridCell(species.GridSvg)}
+                    ${buildGridCell(species.GridSvg, species.Pentads)}
                   </tr>
                 `;
               }).join('')}
