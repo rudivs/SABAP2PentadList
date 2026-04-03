@@ -6,6 +6,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const router = express.Router();
 const XENO_CANTO_API_URL = 'https://xeno-canto.org/api/3/recordings';
+const SABAP_PENTAD_PROXY_PATH = '/.netlify/functions/sabap-pentad';
 const XENO_CANTO_API_KEY = process.env.XENO_CANTO_API_KEY || process.env.XC_API_KEY;
 const MAIN_PENTAD_TIMEOUT_MS = 10000;
 const ADJACENT_PENTAD_TIMEOUT_MS = 8000;
@@ -74,18 +75,27 @@ async function fetchCalls(query) {
   }
 }
 
-async function fetchPentadSpecies(pentadCode, timeoutMs) {
-  const apiUrl = `http://api.adu.org.za/sabap2/v2/coverage/pentad/${pentadCode}?format=JSON`;
+function getRequestOrigin(req) {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const protocol = forwardedProto ? forwardedProto.split(',')[0] : 'http';
+  return `${protocol}://${req.headers.host}`;
+}
+
+async function fetchPentadSpeciesViaProxy(req, pentadCode, timeoutMs) {
+  const proxyUrl = new URL(SABAP_PENTAD_PROXY_PATH, getRequestOrigin(req));
+  proxyUrl.searchParams.set('code', pentadCode);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    console.log(`Fetching ${pentadCode} from ${apiUrl}...`);
-    const response = await fetch(apiUrl, { signal: controller.signal });
+    console.log(`Fetching ${pentadCode} via ${proxyUrl.toString()}...`);
+    const response = await fetch(proxyUrl, { signal: controller.signal });
 
     if (!response.ok) {
-      const error = new Error(`SABAP2 request failed with status ${response.status}`);
-      error.code = 'SABAP2_API_ERROR';
+      const errorText = await response.text();
+      const error = new Error(errorText || `SABAP proxy failed with status ${response.status}`);
+      error.code = 'SABAP_PROXY_ERROR';
       throw error;
     }
 
@@ -102,7 +112,7 @@ router.get('/results', async (req, res) => {
   let species;
   let adjacentFailures = 0;
   try {
-    species = await fetchPentadSpecies(pentadCode, MAIN_PENTAD_TIMEOUT_MS);
+    species = await fetchPentadSpeciesViaProxy(req, pentadCode, MAIN_PENTAD_TIMEOUT_MS);
     if (species.length) {
       console.log(`Main pentad ${pentadCode} returned ${species.length} species...`);
     } else {
@@ -131,7 +141,7 @@ router.get('/results', async (req, res) => {
     ];
     const speciesLists = await Promise.all(pentads.map(async pentad => { 
       try {
-        const adjacentSpecies = await fetchPentadSpecies(pentad, ADJACENT_PENTAD_TIMEOUT_MS);
+        const adjacentSpecies = await fetchPentadSpeciesViaProxy(req, pentad, ADJACENT_PENTAD_TIMEOUT_MS);
         if (!adjacentSpecies.length) {
           console.log(`Pentad ${pentad} returned no species`);
           return { species: [], failed: false };
