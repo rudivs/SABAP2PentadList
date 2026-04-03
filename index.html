@@ -2,34 +2,98 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --paper: #f4ecd6;
+        --paper-shadow: #e7dcc0;
+        --paper-line: rgba(119, 90, 44, 0.12);
+        --paper-margin: rgba(145, 76, 52, 0.18);
+        --ink: #2b2215;
+        --ink-soft: #5e503f;
+        --accent: #6c5c2f;
+        --accent-strong: #4f431f;
+        --accent-wash: rgba(108, 92, 47, 0.12);
+        --field-note: #ede4c8;
+        --warning-bg: #f4dfbf;
+        --warning-border: #c08c40;
+        --warning-ink: #6a4a15;
+        --danger-bg: #f4d8cf;
+        --danger-border: #b87062;
+        --danger-ink: #7a2f26;
+        --table-rule: rgba(67, 49, 24, 0.18);
+      }
+
       * {
         box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        font-family: Arial, sans-serif;
+        font-family: "Libre Baskerville", Georgia, serif;
         line-height: 1.5;
-        background: #f5f7fa;
-        color: #16202a;
+        background:
+          linear-gradient(90deg, transparent 0 78px, var(--paper-margin) 78px 80px, transparent 80px),
+          repeating-linear-gradient(
+            180deg,
+            transparent 0 31px,
+            var(--paper-line) 31px 32px
+          ),
+          linear-gradient(180deg, #efe5cb 0%, var(--paper) 100%);
+        color: var(--ink);
       }
 
       .page {
         max-width: 1100px;
         margin: 0 auto;
-        padding: 24px 16px 40px;
+        padding: 28px 20px 48px 104px;
+        min-height: 100vh;
       }
 
       h1,
       h2 {
         margin-top: 0;
+        font-family: "Caveat", "Brush Script MT", cursive;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+      }
+
+      h1 {
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        margin-bottom: 12px;
+      }
+
+      h2 {
+        font-size: clamp(1.9rem, 4vw, 2.6rem);
+      }
+
+      .query-form label,
+      .results-notice,
+      .request-status,
+      .loading-label,
+      .location-status,
+      .dataTables_wrapper .dataTables_filter label,
+      .dataTables_wrapper .dataTables_length label,
+      .dataTables_wrapper .dataTables_info,
+      .dataTables_wrapper .dataTables_paginate,
+      .dataTables_wrapper .dataTables_filter,
+      .dataTables_wrapper .dataTables_length {
+        font-family: "Caveat", "Brush Script MT", cursive;
+        letter-spacing: 0.02em;
       }
 
       .query-form {
         display: grid;
         gap: 12px;
         max-width: 420px;
+        background: rgba(255, 250, 239, 0.58);
+        border: 1px solid rgba(84, 64, 37, 0.12);
+        border-radius: 18px;
+        padding: 18px 18px 16px;
+        box-shadow: 0 12px 28px rgba(87, 69, 34, 0.08);
       }
 
       .query-form-row {
@@ -41,6 +105,7 @@
 
       .query-form label {
         font-weight: 600;
+        font-size: 1.5rem;
       }
 
       .query-form input,
@@ -53,32 +118,35 @@
       }
 
       .query-form input {
-        border: 1px solid #c4ccd5;
-        background: #fff;
+        border: 1px solid rgba(76, 58, 31, 0.22);
+        background: rgba(255, 251, 243, 0.92);
+        color: var(--ink);
+        box-shadow: inset 0 -1px 0 rgba(76, 58, 31, 0.08);
       }
 
       .query-form button {
-        border: none;
-        background: #1e5bb8;
-        color: #fff;
+        border: 1px solid rgba(79, 67, 31, 0.16);
+        background: linear-gradient(180deg, #857448 0%, #66572d 100%);
+        color: #f9f3e2;
         font-weight: 600;
         cursor: pointer;
+        box-shadow: 0 6px 16px rgba(67, 49, 24, 0.16);
       }
 
       .query-form button.secondary-button {
-        background: #e7eef7;
-        color: #184a95;
-        border: 1px solid #b8c9df;
+        background: rgba(234, 222, 191, 0.92);
+        color: var(--accent-strong);
+        border: 1px solid rgba(108, 92, 47, 0.22);
       }
 
       .query-form button:hover,
       .query-form button:focus {
-        background: #184a95;
+        background: linear-gradient(180deg, #726337 0%, #594b25 100%);
       }
 
       .query-form button.secondary-button:hover,
       .query-form button.secondary-button:focus {
-        background: #d7e5f6;
+        background: #e6d8b5;
       }
 
       .query-form button:disabled {
@@ -89,7 +157,7 @@
       .location-status {
         min-height: 1.5em;
         margin: 0;
-        color: #4f5b67;
+        color: var(--ink-soft);
         font-size: 14px;
       }
 
@@ -104,7 +172,7 @@
 
       .loading-label {
         margin: 0 0 8px;
-        color: #4f5b67;
+        color: var(--ink-soft);
         font-size: 14px;
       }
 
@@ -114,7 +182,7 @@
         max-width: 420px;
         height: 10px;
         overflow: hidden;
-        background: #dfe7f1;
+        background: rgba(111, 93, 54, 0.16);
         border-radius: 999px;
       }
 
@@ -123,7 +191,7 @@
         position: absolute;
         inset: 0 auto 0 -40%;
         width: 40%;
-        background: linear-gradient(90deg, #1e5bb8, #58a6ff);
+        background: linear-gradient(90deg, #7c6236, #b18b52);
         border-radius: inherit;
         animation: loading-slide 1.1s ease-in-out infinite;
       }
@@ -144,9 +212,9 @@
         padding: 12px 14px;
         max-width: 420px;
         border-radius: 8px;
-        border: 1px solid #e2b4b4;
-        background: #fff1f1;
-        color: #8a1f1f;
+        border: 1px solid var(--danger-border);
+        background: var(--danger-bg);
+        color: var(--danger-ink);
       }
 
       .request-status.active {
@@ -159,9 +227,9 @@
         padding: 12px 14px;
         max-width: 420px;
         border-radius: 8px;
-        border: 1px solid #c8d7eb;
-        background: #edf4fc;
-        color: #184a95;
+        border: 1px solid rgba(108, 92, 47, 0.2);
+        background: var(--field-note);
+        color: var(--accent-strong);
       }
 
       .results-notice.active {
@@ -169,14 +237,17 @@
       }
 
       .results-notice.warning {
-        border-color: #e7cf9a;
-        background: #fff8e7;
-        color: #7a5a00;
+        border-color: var(--warning-border);
+        background: var(--warning-bg);
+        color: var(--warning-ink);
       }
 
       #play-random {
         display: inline-block;
         margin: 8px 0 20px;
+        color: var(--accent-strong);
+        font-family: "Caveat", "Brush Script MT", cursive;
+        font-size: 1.45rem;
       }
 
       #results {
@@ -185,6 +256,11 @@
 
       .results-section {
         margin-top: 24px;
+        background: rgba(255, 251, 241, 0.64);
+        border: 1px solid rgba(84, 64, 37, 0.1);
+        border-radius: 18px;
+        padding: 18px 20px 16px;
+        box-shadow: 0 10px 24px rgba(87, 69, 34, 0.06);
       }
 
       .results-table {
@@ -196,6 +272,33 @@
       .dataTables_wrapper {
         width: 100%;
         overflow-x: auto;
+      }
+
+      table.dataTable thead th,
+      table.dataTable tbody td {
+        border-bottom: 1px solid var(--table-rule) !important;
+      }
+
+      table.dataTable thead th {
+        font-family: "Caveat", "Brush Script MT", cursive;
+        font-size: 1.35rem;
+        color: var(--ink);
+        background: rgba(232, 220, 187, 0.6);
+      }
+
+      table.dataTable tbody td {
+        background: transparent !important;
+        color: var(--ink);
+      }
+
+      table.dataTable.stripe tbody tr.odd,
+      table.dataTable.display tbody tr.odd {
+        background: rgba(255, 252, 244, 0.52);
+      }
+
+      table.dataTable.hover tbody tr:hover,
+      table.dataTable.display tbody tr:hover {
+        background: rgba(108, 92, 47, 0.08);
       }
 
       table.dataTable {
@@ -232,7 +335,7 @@
 
       .grid-toggle-button:hover,
       .grid-toggle-button:focus {
-        background: #edf4fc;
+        background: var(--accent-wash);
         outline: none;
       }
 
@@ -275,12 +378,12 @@
       .listen-button-icon {
         width: 18px;
         height: 18px;
-        color: #184a95;
+        color: var(--accent-strong);
       }
 
       .listen-button:hover,
       .listen-button:focus {
-        background: #edf4fc;
+        background: var(--accent-wash);
         outline: none;
       }
 
@@ -305,18 +408,19 @@
       }
     
       .modal-content {
-        background-color: #fefefe;
+        background: linear-gradient(180deg, #fffaf0 0%, #f3ead5 100%);
         margin: 48px auto;
         padding: 20px;
-        border: 1px solid #888;
+        border: 1px solid rgba(84, 64, 37, 0.18);
         width: min(92vw, 680px);
         max-height: calc(100vh - 96px);
         overflow-y: auto;
         border-radius: 12px;
+        color: var(--ink);
       }
     
       .close {
-        color: #aaa;
+        color: var(--ink-soft);
         float: right;
         font-size: 28px;
         font-weight: bold;
@@ -324,7 +428,7 @@
     
       .close:hover,
       .close:focus {
-        color: black;
+        color: var(--ink);
         text-decoration: none;
         cursor: pointer;
       }
@@ -335,7 +439,18 @@
 
       @media (max-width: 640px) {
         .page {
-          padding: 20px 12px 32px;
+          padding: 18px 12px 32px 48px;
+        }
+
+        body {
+          background:
+            linear-gradient(90deg, transparent 0 28px, var(--paper-margin) 28px 30px, transparent 30px),
+            repeating-linear-gradient(
+              180deg,
+              transparent 0 31px,
+              var(--paper-line) 31px 32px
+            ),
+            linear-gradient(180deg, #efe5cb 0%, var(--paper) 100%);
         }
 
         .query-form-row {
@@ -359,13 +474,25 @@
           margin-left: 0;
           margin-top: 6px;
         }
+
+        h1 {
+          font-size: 2.55rem;
+        }
+
+        h2 {
+          font-size: 2rem;
+        }
+
+        .results-section {
+          padding: 16px 14px 14px;
+        }
       }
     </style>
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.css">
     <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.js"></script>
     <script type="text/javascript">
-      const PENTAD_CACHE_VERSION = 'v6';
+      const PENTAD_CACHE_VERSION = 'v7';
       const PENTAD_CACHE_PREFIX = `pentad-results:${PENTAD_CACHE_VERSION}:`;
       const PENTAD_CACHE_TTL_MS = 5 * 24 * 60 * 60 * 1000;
 
