@@ -352,6 +352,21 @@
         }
       }
 
+      function updatePentadUrl(pentadCode) {
+        const url = new URL(window.location.href);
+        if (pentadCode) {
+          url.searchParams.set('pentadCode', pentadCode);
+        } else {
+          url.searchParams.delete('pentadCode');
+        }
+        window.history.pushState({}, '', url);
+      }
+
+      function getPentadCodeFromUrl() {
+        const url = new URL(window.location.href);
+        return url.searchParams.get('pentadCode') || '';
+      }
+
       function initializeResultsTables() {
         $('#species-table').DataTable({
             "order": [[ 2, "desc" ]],
@@ -447,13 +462,15 @@
       function callResults(options) {
         const opts = options || {};
         // Get the pentad code value from the form
-        var pentadCode = document.getElementById('pentadCode').value;
+        var pentadCode = document.getElementById('pentadCode').value.trim();
         const loadingIndicator = document.getElementById('loading-indicator');
         const requestStatus = document.getElementById('request-status');
         const submitButton = document.getElementById('submit-button');
         const results = document.getElementById('results');
         // Make a GET request to the /results endpoint with the pentad code as a query parameter
         var xhr = new XMLHttpRequest();
+
+        document.getElementById('pentadCode').value = pentadCode;
 
         function showRequestFailure(message) {
           loadingIndicator.classList.remove('active');
@@ -462,6 +479,10 @@
           requestStatus.classList.add('active');
           setResultsNotice('');
           results.innerHTML = '';
+        }
+
+        if (opts.updateHistory !== false) {
+          updatePentadUrl(pentadCode);
         }
 
         if (opts.forceRefresh) {
@@ -696,6 +717,12 @@
           modal.style.display = "none";
           audioPlayer.pause();
         }
+      }
+
+      const pentadCodeFromUrl = getPentadCodeFromUrl();
+      if (pentadCodeFromUrl) {
+        pentadCodeInput.value = pentadCodeFromUrl;
+        callResults({ updateHistory: false });
       }
     </script>
   </body>
